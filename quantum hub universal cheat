@@ -1,0 +1,1133 @@
+if not game:IsLoaded() then game.Loaded:Wait() end
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local Lighting = game:GetService("Lighting")
+local Stats = game:GetService("Stats")
+local Camera = workspace.CurrentCamera
+local LocalPlayer = Players.LocalPlayer
+local Mouse = LocalPlayer:GetMouse()
+
+-- Dynamic Camera Hook (For games with custom camera systems)
+workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(function()
+    Camera = workspace.CurrentCamera
+end)
+
+-- Configuration States
+local QuantumConfig = {
+    -- Global
+    TeamCheck = false,
+    
+    -- Combat
+    Aimbot = false,
+    TriggerBot = false,
+    TriggerDelay = 0.05,
+    WallCheck = false,
+    ShowFOV = false,
+    FOVRadius = 100,
+    Smoothness = 1,
+    AimbotKey = Enum.UserInputType.MouseButton2,
+    TargetPart = "Head",
+    AntiCheatBypass = false,
+    
+    -- Visuals
+    NameESP = false,
+    BoxESP = false,
+    Tracers = false,
+    SkeletonESP = false,
+    MaxDistance = 1000,
+    ESP_Color = Color3.fromRGB(220, 50, 50),
+    
+    -- World (New Engine)
+    WorldTheme = "Default",
+    MoonSize = 20,
+    Brightness = 2,
+    QuantumAura = false,
+    
+    -- Settings
+    Theme = "Crimson",
+    MenuOpen = true
+}
+
+-- COOLER MENU THEME (Neon Void / Cyber Premium)
+local Themes = {
+    Crimson = Color3.fromRGB(255, 45, 85),
+    Ocean = Color3.fromRGB(0, 180, 255),
+    Emerald = Color3.fromRGB(40, 255, 120),
+    Amethyst = Color3.fromRGB(180, 60, 255),
+    Amber = Color3.fromRGB(255, 160, 0),
+    Ghost = Color3.fromRGB(220, 220, 255),
+    Bubblegum = Color3.fromRGB(255, 80, 200),
+    Cyanide = Color3.fromRGB(0, 255, 255),
+    Toxic = Color3.fromRGB(160, 255, 60),
+    Lavender = Color3.fromRGB(200, 140, 255),
+    Sunset = Color3.fromRGB(255, 90, 70),
+    Gold = Color3.fromRGB(255, 215, 0),
+    
+    -- NEW GUI THEMES
+    Hacker = Color3.fromRGB(0, 255, 65),
+    Void = Color3.fromRGB(110, 20, 255),
+    Blood = Color3.fromRGB(180, 10, 10),
+    Frost = Color3.fromRGB(100, 240, 255),
+    Magma = Color3.fromRGB(255, 70, 10),
+    HotPink = Color3.fromRGB(255, 0, 150),
+    Voltage = Color3.fromRGB(210, 255, 0),
+    Onyx = Color3.fromRGB(180, 180, 180),
+    MidnightBlue = Color3.fromRGB(20, 60, 255),
+    Mint = Color3.fromRGB(0, 255, 150)
+}
+
+local ThemeOptionsList = {
+    "Crimson", "Ocean", "Emerald", "Amethyst", "Amber", "Ghost", 
+    "Bubblegum", "Cyanide", "Toxic", "Lavender", "Sunset", "Gold",
+    "Hacker", "Void", "Blood", "Frost", "Magma", "HotPink", "Voltage", "Onyx", "MidnightBlue", "Mint"
+}
+
+local WorldOptionsList = {
+    "Default", "Midnight", "Vaporwave", "Nuclear", "Blood Moon", "Quantum Space",
+    "Aurora Borealis", "Eternal Sunset", "Thunderstorm", "Cosmic Nebula", "Inferno Sky", "Paradise",
+    "Cyberpunk City", "Deep Space", "Synthwave Retro"
+}
+
+-- NEW COOLER MENU COLORS (darker, neon, premium cyber look)
+local ThemeColors = {
+    Background = Color3.fromRGB(8, 8, 14),
+    Sidebar = Color3.fromRGB(13, 13, 24),
+    ElementBG = Color3.fromRGB(22, 22, 36),
+    ElementHover = Color3.fromRGB(38, 38, 62),
+    TextWhite = Color3.fromRGB(245, 245, 255),
+    TextGray = Color3.fromRGB(165, 165, 195)
+}
+
+local ESP_Objects = {}
+local ThemeElements = {} 
+
+-----------------------------------
+-- 1. WORLD ENGINE LOGIC - NO BOX, PROCEDURAL SKIES
+-----------------------------------
+local function UpdateWorld()
+    local sky = Lighting:FindFirstChildOfClass("Sky") or Instance.new("Sky", Lighting)
+    local atmosphere = Lighting:FindFirstChildOfClass("Atmosphere") or Instance.new("Atmosphere", Lighting)
+    
+    -- Reset base lighting
+    Lighting.ClockTime = 14
+    Lighting.Brightness = QuantumConfig.Brightness
+    Lighting.Ambient = Color3.fromRGB(128, 128, 128)
+    Lighting.OutdoorAmbient = Color3.fromRGB(128, 128, 128)
+    Lighting.FogEnd = 100000
+    
+    sky.SunAngularSize = 14
+    sky.MoonAngularSize = QuantumConfig.MoonSize
+    sky.StarCount = 3000
+    
+    -- CRITICAL FIX: CLEAR SKYBOX TEXTURES TO PREVENT THE BOX EFFECT
+    sky.SkyboxBk = ""
+    sky.SkyboxDn = ""
+    sky.SkyboxFt = ""
+    sky.SkyboxLf = ""
+    sky.SkyboxRt = ""
+    sky.SkyboxUp = ""
+
+    -- Lowered Density and Haze significantly to allow deep, clear procedural gradients
+    atmosphere.Density = 0.1
+    atmosphere.Offset = 0.25
+    atmosphere.Glare = 0.5
+    atmosphere.Haze = 0.1
+    atmosphere.Color = Color3.fromRGB(199, 199, 199)
+    atmosphere.Decay = Color3.fromRGB(100, 100, 100)
+    
+    if QuantumConfig.WorldTheme == "Default" then
+        Lighting.ClockTime = 14
+        atmosphere.Color = Color3.fromRGB(150, 180, 220)
+        atmosphere.Decay = Color3.fromRGB(80, 100, 150)
+        
+    elseif QuantumConfig.WorldTheme == "Midnight" then
+        Lighting.ClockTime = 0
+        Lighting.Brightness = 0.5
+        sky.StarCount = 15000
+        
+    elseif QuantumConfig.WorldTheme == "Vaporwave" then
+        Lighting.ClockTime = 18
+        Lighting.Ambient = Color3.fromRGB(200, 80, 255)
+        atmosphere.Color = Color3.fromRGB(255, 80, 200)
+        atmosphere.Haze = 0.5
+        
+    elseif QuantumConfig.WorldTheme == "Nuclear" then
+        Lighting.ClockTime = 12
+        Lighting.Ambient = Color3.fromRGB(80, 255, 80)
+        atmosphere.Color = Color3.fromRGB(120, 255, 120)
+        atmosphere.Haze = 0.8
+        
+    elseif QuantumConfig.WorldTheme == "Blood Moon" then
+        Lighting.ClockTime = 2
+        Lighting.Ambient = Color3.fromRGB(255, 40, 40)
+        atmosphere.Color = Color3.fromRGB(200, 20, 20)
+        
+    elseif QuantumConfig.WorldTheme == "Quantum Space" then
+        Lighting.ClockTime = 0
+        Lighting.Brightness = 2
+        atmosphere.Density = 0
+        atmosphere.Haze = 0
+        sky.StarCount = 20000
+        
+    elseif QuantumConfig.WorldTheme == "Aurora Borealis" then
+        Lighting.ClockTime = 1
+        atmosphere.Color = Color3.fromRGB(60, 255, 220)
+        sky.StarCount = 12000
+        
+    elseif QuantumConfig.WorldTheme == "Eternal Sunset" then
+        Lighting.ClockTime = 17.8
+        atmosphere.Color = Color3.fromRGB(255, 120, 60)
+        atmosphere.Haze = 0.3
+        
+    elseif QuantumConfig.WorldTheme == "Thunderstorm" then
+        Lighting.ClockTime = 12
+        Lighting.Brightness = 0.3
+        atmosphere.Density = 0.5
+        atmosphere.Haze = 2
+        atmosphere.Color = Color3.fromRGB(50, 55, 65)
+        
+    elseif QuantumConfig.WorldTheme == "Cosmic Nebula" then
+        Lighting.ClockTime = 0
+        atmosphere.Color = Color3.fromRGB(140, 40, 255)
+        sky.StarCount = 15000
+        
+    elseif QuantumConfig.WorldTheme == "Inferno Sky" then
+        Lighting.ClockTime = 15
+        Lighting.Ambient = Color3.fromRGB(255, 100, 40)
+        atmosphere.Color = Color3.fromRGB(255, 80, 20)
+        atmosphere.Haze = 0.5
+        
+    elseif QuantumConfig.WorldTheme == "Paradise" then
+        Lighting.ClockTime = 11
+        Lighting.Brightness = 3.6
+        atmosphere.Color = Color3.fromRGB(100, 200, 255)
+        
+    elseif QuantumConfig.WorldTheme == "Cyberpunk City" then
+        Lighting.ClockTime = 2
+        Lighting.Ambient = Color3.fromRGB(255, 0, 150)
+        atmosphere.Color = Color3.fromRGB(0, 255, 255)
+        atmosphere.Haze = 0.4
+        
+    elseif QuantumConfig.WorldTheme == "Deep Space" then
+        Lighting.ClockTime = 0
+        Lighting.Brightness = 3
+        atmosphere.Density = 0
+        atmosphere.Haze = 0
+        sky.StarCount = 25000
+        
+    elseif QuantumConfig.WorldTheme == "Synthwave Retro" then
+        Lighting.ClockTime = 18
+        Lighting.Brightness = 1.8
+        atmosphere.Color = Color3.fromRGB(255, 0, 100)
+        atmosphere.Haze = 0.3
+    end
+end
+
+task.spawn(function()
+    while task.wait(0.5) do
+        pcall(function()
+            if QuantumConfig.QuantumAura and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                local p = Instance.new("ParticleEmitter")
+                p.Color = ColorSequence.new(Themes[QuantumConfig.Theme])
+                p.Size = NumberSequence.new(0.5, 0)
+                p.Texture = "rbxassetid://243098098"
+                p.Lifetime = NumberRange.new(1)
+                p.Rate = 20
+                p.Speed = NumberRange.new(2)
+                p.Parent = LocalPlayer.Character.HumanoidRootPart
+                task.wait(1)
+                p:Destroy()
+            end
+        end)
+    end
+end)
+
+-----------------------------------
+-- 2. UI HELPERS & THEME ENGINE
+-----------------------------------
+local function AddCorner(obj, radius)
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, radius)
+    corner.Parent = obj
+end
+
+local function AddStroke(obj, color, thickness)
+    local stroke = Instance.new("UIStroke")
+    stroke.Color = color
+    stroke.Thickness = thickness or 1
+    stroke.Parent = obj
+    return stroke
+end
+
+local function UpdateTheme()
+    local currentAccent = Themes[QuantumConfig.Theme]
+    for _, element in pairs(ThemeElements) do
+        if element.condition == nil or element.condition() == true then
+            TweenService:Create(element.inst, TweenInfo.new(0.3, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
+                [element.prop] = currentAccent
+            }):Play()
+        end
+    end
+end
+
+local FOVCircle = Drawing.new("Circle")
+FOVCircle.Visible = false
+FOVCircle.Thickness = 1
+FOVCircle.Filled = false
+FOVCircle.NumSides = 60
+
+-----------------------------------
+-- 3. GUI CREATION (CANVAS GROUP)
+-----------------------------------
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "QuantumScriptsPremium"
+ScreenGui.ResetOnSpawn = false
+
+-- Fallback for extremely custom games that hide CoreGui
+local success, _ = pcall(function()
+    ScreenGui.Parent = game:GetService("CoreGui")
+end)
+if not success then
+    ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+end
+
+local MainFrame = Instance.new("CanvasGroup")
+MainFrame.Size = UDim2.new(0, 550, 0, 420)
+MainFrame.Position = UDim2.new(0.5, -275, 0.5, -210)
+MainFrame.BackgroundColor3 = ThemeColors.Background
+MainFrame.BackgroundTransparency = 0.05
+MainFrame.BorderSizePixel = 0
+MainFrame.GroupTransparency = 0
+AddCorner(MainFrame, 12)
+AddStroke(MainFrame, Color3.fromRGB(60, 60, 90), 1.5)
+MainFrame.Parent = ScreenGui
+
+local Topbar = Instance.new("Frame")
+Topbar.Size = UDim2.new(1, 0, 0, 40)
+Topbar.BackgroundTransparency = 1
+Topbar.Active = true
+Topbar.Parent = MainFrame
+
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(0, 200, 1, 0)
+Title.Position = UDim2.new(0, 20, 0, 0)
+Title.BackgroundTransparency = 1
+Title.Text = "QUANTUM SCRIPTS"
+Title.TextColor3 = Themes[QuantumConfig.Theme]
+Title.Font = Enum.Font.GothamBold
+Title.TextSize = 19
+Title.TextXAlignment = Enum.TextXAlignment.Left
+Title.Parent = Topbar
+table.insert(ThemeElements, {inst = Title, prop = "TextColor3"})
+
+local Subtitle = Instance.new("TextLabel")
+Subtitle.Size = UDim2.new(0, 150, 1, 0)
+Subtitle.Position = UDim2.new(1, -170, 0, 0)
+Subtitle.BackgroundTransparency = 1
+Subtitle.Text = "[Right Shift] to Hide"
+Subtitle.TextColor3 = ThemeColors.TextGray
+Subtitle.Font = Enum.Font.GothamMedium
+Subtitle.TextSize = 12
+Subtitle.TextXAlignment = Enum.TextXAlignment.Right
+Subtitle.Parent = Topbar
+
+local Divider = Instance.new("Frame")
+Divider.Size = UDim2.new(1, 0, 0, 1)
+Divider.Position = UDim2.new(0, 0, 1, 0)
+Divider.BackgroundColor3 = Color3.fromRGB(45, 45, 65)
+Divider.BorderSizePixel = 0
+Divider.Parent = Topbar
+
+local Sidebar = Instance.new("Frame")
+Sidebar.Size = UDim2.new(0, 140, 1, -71)
+Sidebar.Position = UDim2.new(0, 0, 0, 41)
+Sidebar.BackgroundColor3 = ThemeColors.Sidebar
+Sidebar.BackgroundTransparency = 0.25
+Sidebar.BorderSizePixel = 0
+AddCorner(Sidebar, 12)
+Sidebar.Parent = MainFrame
+
+local SidebarLayout = Instance.new("UIListLayout")
+SidebarLayout.SortOrder = Enum.SortOrder.LayoutOrder
+SidebarLayout.Padding = UDim.new(0, 6)
+SidebarLayout.Parent = Sidebar
+
+local SidebarPad = Instance.new("UIPadding")
+SidebarPad.PaddingTop = UDim.new(0, 10)
+SidebarPad.PaddingLeft = UDim.new(0, 10)
+SidebarPad.PaddingRight = UDim.new(0, 10)
+SidebarPad.Parent = Sidebar
+
+local Content = Instance.new("Frame")
+Content.Size = UDim2.new(1, -150, 1, -71)
+Content.Position = UDim2.new(0, 150, 0, 41)
+Content.BackgroundTransparency = 1
+Content.Parent = MainFrame
+
+local BottomBar = Instance.new("Frame")
+BottomBar.Size = UDim2.new(1, 0, 0, 30)
+BottomBar.Position = UDim2.new(0, 0, 1, -30)
+BottomBar.BackgroundColor3 = ThemeColors.Background
+BottomBar.BorderSizePixel = 0
+AddCorner(BottomBar, 12)
+BottomBar.Parent = MainFrame
+
+local BottomDivider = Instance.new("Frame")
+BottomDivider.Size = UDim2.new(1, 0, 0, 1)
+BottomDivider.Position = UDim2.new(0, 0, 0, 0)
+BottomDivider.BackgroundColor3 = Color3.fromRGB(45, 45, 65)
+BottomDivider.BorderSizePixel = 0
+BottomDivider.Parent = BottomBar
+
+local FPSLabel = Instance.new("TextLabel")
+FPSLabel.Size = UDim2.new(0, 100, 1, 0)
+FPSLabel.Position = UDim2.new(0, 20, 0, 0)
+FPSLabel.BackgroundTransparency = 1
+FPSLabel.TextColor3 = ThemeColors.TextGray
+FPSLabel.Font = Enum.Font.GothamMedium
+FPSLabel.TextSize = 12
+FPSLabel.TextXAlignment = Enum.TextXAlignment.Left
+FPSLabel.Parent = BottomBar
+
+local PingLabel = Instance.new("TextLabel")
+PingLabel.Size = UDim2.new(0, 100, 1, 0)
+PingLabel.Position = UDim2.new(0, 120, 0, 0)
+PingLabel.BackgroundTransparency = 1
+PingLabel.TextColor3 = ThemeColors.TextGray
+PingLabel.Font = Enum.Font.GothamMedium
+PingLabel.TextSize = 12
+PingLabel.TextXAlignment = Enum.TextXAlignment.Left
+PingLabel.Parent = BottomBar
+
+local Tabs = {}
+local currentTabName = ""
+local function CreateTab(name)
+    local TabButton = Instance.new("TextButton")
+    TabButton.Size = UDim2.new(1, 0, 0, 35)
+    TabButton.BackgroundColor3 = ThemeColors.Sidebar
+    TabButton.Text = name
+    TabButton.TextColor3 = ThemeColors.TextGray
+    TabButton.Font = Enum.Font.GothamSemibold
+    TabButton.TextSize = 14
+    AddCorner(TabButton, 8)
+    TabButton.Parent = Sidebar
+    
+    local Indicator = Instance.new("Frame")
+    Indicator.Size = UDim2.new(0, 3, 0, 0)
+    Indicator.Position = UDim2.new(0, 0, 0.5, 0)
+    Indicator.BackgroundColor3 = Themes[QuantumConfig.Theme]
+    Indicator.BorderSizePixel = 0
+    AddCorner(Indicator, 2)
+    Indicator.Parent = TabButton
+    table.insert(ThemeElements, {inst = Indicator, prop = "BackgroundColor3"})
+    
+    local TabFrame = Instance.new("ScrollingFrame")
+    TabFrame.Size = UDim2.new(1, 0, 1, -10)
+    TabFrame.Position = UDim2.new(0, 0, 0, 10)
+    TabFrame.BackgroundTransparency = 1
+    TabFrame.BorderSizePixel = 0
+    TabFrame.ScrollBarThickness = 2
+    TabFrame.ScrollBarImageColor3 = ThemeColors.TextGray
+    TabFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    TabFrame.Visible = false
+    TabFrame.Parent = Content
+    
+    local Layout = Instance.new("UIListLayout")
+    Layout.Padding = UDim.new(0, 8)
+    Layout.SortOrder = Enum.SortOrder.LayoutOrder
+    Layout.Parent = TabFrame
+    
+    local Padding = Instance.new("UIPadding")
+    Padding.PaddingRight = UDim.new(0, 10)
+    Padding.Parent = TabFrame
+    
+    Tabs[name] = {Button = TabButton, Frame = TabFrame, Indicator = Indicator}
+    table.insert(ThemeElements, {
+        inst = TabButton, 
+        prop = "TextColor3", 
+        condition = function() return currentTabName == name end
+    })
+    
+    TabButton.MouseButton1Click:Connect(function()
+        currentTabName = name
+        for tName, tab in pairs(Tabs) do
+            local isSelected = (tName == name)
+            tab.Frame.Visible = isSelected
+            
+            TweenService:Create(tab.Button, TweenInfo.new(0.3), {
+                TextColor3 = isSelected and Themes[QuantumConfig.Theme] or ThemeColors.TextGray,
+                BackgroundColor3 = isSelected and ThemeColors.ElementBG or ThemeColors.Sidebar
+            }):Play()
+            
+            TweenService:Create(tab.Indicator, TweenInfo.new(0.3, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
+                Size = isSelected and UDim2.new(0, 3, 0.6, 0) or UDim2.new(0, 3, 0, 0),
+                Position = isSelected and UDim2.new(0, 0, 0.2, 0) or UDim2.new(0, 0, 0.5, 0)
+            }):Play()
+        end
+    end)
+    return TabFrame
+end
+
+-----------------------------------
+-- 4. ANIMATED UI ELEMENTS
+-----------------------------------
+local function CreateToggle(parent, name, configKey)
+    local Frame = Instance.new("TextButton")
+    Frame.Size = UDim2.new(1, 0, 0, 42)
+    Frame.BackgroundColor3 = ThemeColors.ElementBG
+    Frame.Text = ""
+    AddCorner(Frame, 10)
+    Frame.Parent = parent
+    
+    local Label = Instance.new("TextLabel")
+    Label.Size = UDim2.new(1, -60, 1, 0)
+    Label.Position = UDim2.new(0, 15, 0, 0)
+    Label.BackgroundTransparency = 1
+    Label.Text = name
+    Label.TextColor3 = ThemeColors.TextWhite
+    Label.Font = Enum.Font.GothamSemibold
+    Label.TextSize = 14
+    Label.TextXAlignment = Enum.TextXAlignment.Left
+    Label.Parent = Frame
+    
+    local SwitchBG = Instance.new("Frame")
+    SwitchBG.Size = UDim2.new(0, 40, 0, 20)
+    SwitchBG.Position = UDim2.new(1, -55, 0.5, -10)
+    SwitchBG.BackgroundColor3 = Color3.fromRGB(50, 50, 55)
+    AddCorner(SwitchBG, 10)
+    SwitchBG.Parent = Frame
+    
+    local SwitchKnob = Instance.new("Frame")
+    SwitchKnob.Size = UDim2.new(0, 16, 0, 16)
+    SwitchKnob.Position = UDim2.new(0, 2, 0.5, -8)
+    SwitchKnob.BackgroundColor3 = ThemeColors.TextWhite
+    AddCorner(SwitchKnob, 8)
+    SwitchKnob.Parent = SwitchBG
+    
+    table.insert(ThemeElements, {
+        inst = SwitchBG, 
+        prop = "BackgroundColor3", 
+        condition = function() return QuantumConfig[configKey] end
+    })
+    
+    Frame.MouseEnter:Connect(function() TweenService:Create(Frame, TweenInfo.new(0.2), {BackgroundColor3 = ThemeColors.ElementHover}):Play() end)
+    Frame.MouseLeave:Connect(function() TweenService:Create(Frame, TweenInfo.new(0.2), {BackgroundColor3 = ThemeColors.ElementBG}):Play() end)
+    
+    local isAnimating = false
+    Frame.MouseButton1Click:Connect(function()
+        if isAnimating then return end
+        isAnimating = true
+        QuantumConfig[configKey] = not QuantumConfig[configKey]
+        local state = QuantumConfig[configKey]
+        
+        TweenService:Create(Frame, TweenInfo.new(0.1), {Size = UDim2.new(0.98, 0, 0, 40)}):Play()
+        TweenService:Create(SwitchKnob, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+            Size = UDim2.new(0, 24, 0, 16),
+            Position = state and UDim2.new(0, 2, 0.5, -8) or UDim2.new(1, -26, 0.5, -8)
+        }):Play()
+        
+        TweenService:Create(SwitchBG, TweenInfo.new(0.35), {
+            BackgroundColor3 = state and Themes[QuantumConfig.Theme] or Color3.fromRGB(50, 50, 55)
+        }):Play()
+        task.wait(0.1)
+        TweenService:Create(Frame, TweenInfo.new(0.2, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Size = UDim2.new(1, 0, 0, 42)}):Play()
+        TweenService:Create(SwitchKnob, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+            Size = UDim2.new(0, 16, 0, 16),
+            Position = state and UDim2.new(1, -18, 0.5, -8) or UDim2.new(0, 2, 0.5, -8)
+        }):Play()
+        task.wait(0.2)
+        isAnimating = false
+    end)
+end
+
+local function CreateSlider(parent, name, min, max, configKey, isFloat)
+    local Frame = Instance.new("Frame")
+    Frame.Size = UDim2.new(1, 0, 0, 50)
+    Frame.BackgroundColor3 = ThemeColors.ElementBG
+    AddCorner(Frame, 10)
+    Frame.Parent = parent
+    Frame.MouseEnter:Connect(function() TweenService:Create(Frame, TweenInfo.new(0.2), {BackgroundColor3 = ThemeColors.ElementHover}):Play() end)
+    Frame.MouseLeave:Connect(function() TweenService:Create(Frame, TweenInfo.new(0.2), {BackgroundColor3 = ThemeColors.ElementBG}):Play() end)
+    
+    local Label = Instance.new("TextLabel")
+    Label.Size = UDim2.new(1, -20, 0, 20)
+    Label.Position = UDim2.new(0, 15, 0, 5)
+    Label.BackgroundTransparency = 1
+    Label.Text = name
+    Label.TextColor3 = ThemeColors.TextWhite
+    Label.Font = Enum.Font.GothamSemibold
+    Label.TextSize = 14
+    Label.TextXAlignment = Enum.TextXAlignment.Left
+    Label.Parent = Frame
+    
+    local ValueLabel = Instance.new("TextLabel")
+    ValueLabel.Size = UDim2.new(0, 50, 0, 20)
+    ValueLabel.Position = UDim2.new(1, -65, 0, 5)
+    ValueLabel.BackgroundTransparency = 1
+    ValueLabel.Text = tostring(QuantumConfig[configKey])
+    ValueLabel.TextColor3 = Themes[QuantumConfig.Theme]
+    ValueLabel.Font = Enum.Font.GothamBold
+    ValueLabel.TextSize = 14
+    ValueLabel.TextXAlignment = Enum.TextXAlignment.Right
+    ValueLabel.Parent = Frame
+    
+    local SliderBG = Instance.new("TextButton")
+    SliderBG.Size = UDim2.new(1, -30, 0, 6)
+    SliderBG.Position = UDim2.new(0, 15, 0, 32)
+    SliderBG.BackgroundColor3 = Color3.fromRGB(50, 50, 55)
+    SliderBG.Text = ""
+    AddCorner(SliderBG, 3)
+    SliderBG.Parent = Frame
+    
+    local Fill = Instance.new("Frame")
+    Fill.Size = UDim2.new((QuantumConfig[configKey] - min) / (max - min), 0, 1, 0)
+    Fill.BackgroundColor3 = Themes[QuantumConfig.Theme]
+    AddCorner(Fill, 3)
+    Fill.Parent = SliderBG
+    
+    table.insert(ThemeElements, {inst = ValueLabel, prop = "TextColor3"})
+    table.insert(ThemeElements, {inst = Fill, prop = "BackgroundColor3"})
+    
+    local draggingSlider = false
+    SliderBG.MouseButton1Down:Connect(function() draggingSlider = true end)
+    UserInputService.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then draggingSlider = false end
+    end)
+    UserInputService.InputChanged:Connect(function(input)
+        if draggingSlider and input.UserInputType == Enum.UserInputType.MouseMovement then
+            local mousePos = UserInputService:GetMouseLocation().X
+            local rel = math.clamp((mousePos - SliderBG.AbsolutePosition.X) / SliderBG.AbsoluteSize.X, 0, 1)
+            Fill.Size = UDim2.new(rel, 0, 1, 0)
+            
+            local value = min + (max - min) * rel
+            if not isFloat then value = math.floor(value) else value = math.floor(value * 100) / 100 end
+            
+            QuantumConfig[configKey] = value
+            ValueLabel.Text = tostring(value)
+            
+            if configKey == "MoonSize" or configKey == "Brightness" then 
+                UpdateWorld() 
+            end
+        end
+    end)
+end
+
+local function CreateCycle(parent, name, options, configKey, isThemeCycle)
+    local Frame = Instance.new("TextButton")
+    Frame.Size = UDim2.new(1, 0, 0, 42)
+    Frame.BackgroundColor3 = ThemeColors.ElementBG
+    Frame.Text = ""
+    AddCorner(Frame, 10)
+    Frame.Parent = parent
+    Frame.MouseEnter:Connect(function() TweenService:Create(Frame, TweenInfo.new(0.2), {BackgroundColor3 = ThemeColors.ElementHover}):Play() end)
+    Frame.MouseLeave:Connect(function() TweenService:Create(Frame, TweenInfo.new(0.2), {BackgroundColor3 = ThemeColors.ElementBG}):Play() end)
+    
+    local Label = Instance.new("TextLabel")
+    Label.Size = UDim2.new(1, -60, 1, 0)
+    Label.Position = UDim2.new(0, 15, 0, 0)
+    Label.BackgroundTransparency = 1
+    Label.Text = name
+    Label.TextColor3 = ThemeColors.TextWhite
+    Label.Font = Enum.Font.GothamSemibold
+    Label.TextSize = 14
+    Label.TextXAlignment = Enum.TextXAlignment.Left
+    Label.Parent = Frame
+    
+    local ValueBox = Instance.new("Frame")
+    ValueBox.Size = UDim2.new(0, 110, 0, 26)
+    ValueBox.Position = UDim2.new(1, -125, 0.5, -13)
+    ValueBox.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
+    AddCorner(ValueBox, 6)
+    ValueBox.Parent = Frame
+    
+    local ValueText = Instance.new("TextLabel")
+    ValueText.Size = UDim2.new(1, 0, 1, 0)
+    ValueText.BackgroundTransparency = 1
+    ValueText.TextColor3 = Themes[QuantumConfig.Theme]
+    ValueText.Font = Enum.Font.GothamBold
+    ValueText.TextSize = 12
+    ValueText.Parent = ValueBox
+    table.insert(ThemeElements, {inst = ValueText, prop = "TextColor3"})
+    
+    local index = 1
+    for i, opt in ipairs(options) do
+        if opt == QuantumConfig[configKey] then index = i break end
+    end
+    ValueText.Text = options[index]
+    
+    Frame.MouseButton1Click:Connect(function()
+        TweenService:Create(Frame, TweenInfo.new(0.1), {Size = UDim2.new(0.98, 0, 0, 40)}):Play()
+        task.wait(0.1)
+        TweenService:Create(Frame, TweenInfo.new(0.2, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Size = UDim2.new(1, 0, 0, 42)}):Play()
+        index = index + 1
+        if index > #options then index = 1 end
+        QuantumConfig[configKey] = options[index]
+        ValueText.Text = options[index]
+        if isThemeCycle then UpdateTheme() end
+        if configKey == "WorldTheme" then UpdateWorld() end
+    end)
+end
+
+local function CreateHueSpectrum(parent, name, configKey)
+    local Frame = Instance.new("Frame")
+    Frame.Size = UDim2.new(1, 0, 0, 60)
+    Frame.BackgroundColor3 = ThemeColors.ElementBG
+    AddCorner(Frame, 10)
+    Frame.Parent = parent
+    Frame.MouseEnter:Connect(function() TweenService:Create(Frame, TweenInfo.new(0.2), {BackgroundColor3 = ThemeColors.ElementHover}):Play() end)
+    Frame.MouseLeave:Connect(function() TweenService:Create(Frame, TweenInfo.new(0.2), {BackgroundColor3 = ThemeColors.ElementBG}):Play() end)
+    
+    local Label = Instance.new("TextLabel")
+    Label.Size = UDim2.new(1, -50, 0, 20)
+    Label.Position = UDim2.new(0, 15, 0, 5)
+    Label.BackgroundTransparency = 1
+    Label.Text = name
+    Label.TextColor3 = ThemeColors.TextWhite
+    Label.Font = Enum.Font.GothamSemibold
+    Label.TextSize = 14
+    Label.TextXAlignment = Enum.TextXAlignment.Left
+    Label.Parent = Frame
+    
+    local PreviewBox = Instance.new("Frame")
+    PreviewBox.Size = UDim2.new(0, 20, 0, 20)
+    PreviewBox.Position = UDim2.new(1, -35, 0, 5)
+    PreviewBox.BackgroundColor3 = QuantumConfig[configKey]
+    AddCorner(PreviewBox, 6)
+    PreviewBox.Parent = Frame
+    
+    local SliderBG = Instance.new("TextButton")
+    SliderBG.Size = UDim2.new(1, -30, 0, 12)
+    SliderBG.Position = UDim2.new(0, 15, 0, 35)
+    SliderBG.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    SliderBG.Text = ""
+    AddCorner(SliderBG, 6)
+    SliderBG.Parent = Frame
+    
+    local UIGradient = Instance.new("UIGradient")
+    UIGradient.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 0, 0)),
+        ColorSequenceKeypoint.new(0.167, Color3.fromRGB(255, 255, 0)),
+        ColorSequenceKeypoint.new(0.333, Color3.fromRGB(0, 255, 0)),
+        ColorSequenceKeypoint.new(0.5, Color3.fromRGB(0, 255, 255)),
+        ColorSequenceKeypoint.new(0.667, Color3.fromRGB(0, 0, 255)),
+        ColorSequenceKeypoint.new(0.833, Color3.fromRGB(255, 0, 255)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 0, 0))
+    })
+    UIGradient.Parent = SliderBG
+    
+    local Pointer = Instance.new("Frame")
+    Pointer.Size = UDim2.new(0, 4, 1, 4)
+    Pointer.Position = UDim2.new(0, 0, 0, -2)
+    Pointer.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    Pointer.BorderSizePixel = 0
+    AddCorner(Pointer, 2)
+    Pointer.Parent = SliderBG
+    
+    local dragging = false
+    SliderBG.MouseButton1Down:Connect(function() dragging = true end)
+    UserInputService.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end
+    end)
+    UserInputService.InputChanged:Connect(function(input)
+        if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+            local mousePos = UserInputService:GetMouseLocation().X
+            local rel = math.clamp((mousePos - SliderBG.AbsolutePosition.X) / SliderBG.AbsoluteSize.X, 0, 1)
+            Pointer.Position = UDim2.new(rel, -2, 0, -2)
+            local newColor = Color3.fromHSV(rel, 1, 1)
+            QuantumConfig[configKey] = newColor
+            PreviewBox.BackgroundColor3 = newColor
+        end
+    end)
+end
+
+-----------------------------------
+-- 5. MOBILE + PC DRAG LOGIC + TOGGLE BIND
+-----------------------------------
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if not gameProcessed and input.KeyCode == Enum.KeyCode.RightShift then
+        QuantumConfig.MenuOpen = not QuantumConfig.MenuOpen
+        TweenService:Create(MainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
+            GroupTransparency = QuantumConfig.MenuOpen and 0 or 1,
+            Size = QuantumConfig.MenuOpen and UDim2.new(0, 550, 0, 420) or UDim2.new(0, 530, 0, 400)
+        }):Play()
+        MainFrame.Active = QuantumConfig.MenuOpen
+    end
+end)
+
+local draggingMenu = false
+local dragInput
+local dragStart
+local startPos
+
+Topbar.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        draggingMenu = true
+        dragStart = input.Position
+        startPos = MainFrame.Position
+    end
+end)
+
+Topbar.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        draggingMenu = false
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+        dragInput = input
+    end
+    
+    if input == dragInput and draggingMenu then
+        local delta = input.Position - dragStart
+        MainFrame.Position = UDim2.new(
+            startPos.X.Scale, 
+            startPos.X.Offset + delta.X, 
+            startPos.Y.Scale, 
+            startPos.Y.Offset + delta.Y
+        )
+    end
+end)
+
+-----------------------------------
+-- 6. POPULATE UI
+-----------------------------------
+local CombatTab = CreateTab("Combat")
+local VisualsTab = CreateTab("Visuals")
+local WorldTab = CreateTab("World")
+local SettingsTab = CreateTab("Settings")
+
+currentTabName = "Combat"
+Tabs["Combat"].Button.BackgroundColor3 = ThemeColors.ElementBG
+Tabs["Combat"].Button.TextColor3 = Themes[QuantumConfig.Theme]
+Tabs["Combat"].Indicator.Size = UDim2.new(0, 3, 0.6, 0)
+Tabs["Combat"].Indicator.Position = UDim2.new(0, 0, 0.2, 0)
+Tabs["Combat"].Frame.Visible = true
+
+-- World Tab
+CreateCycle(WorldTab, "Sky Theme", WorldOptionsList, "WorldTheme", false)
+CreateSlider(WorldTab, "Moon Angular Size", 0, 100, "MoonSize", false)
+CreateSlider(WorldTab, "World Brightness", 0, 10, "Brightness", true)
+CreateToggle(WorldTab, "Quantum Aura Particles", "QuantumAura")
+
+-- Settings Tab
+CreateCycle(SettingsTab, "Menu Theme", ThemeOptionsList, "Theme", true)
+
+-- Combat Tab
+CreateToggle(CombatTab, "Enable Aimbot", "Aimbot")
+CreateToggle(CombatTab, "Wall Check (Visibility)", "WallCheck")
+CreateToggle(CombatTab, "Show FOV Circle", "ShowFOV")
+CreateSlider(CombatTab, "FOV Radius", 50, 800, "FOVRadius", false)
+CreateCycle(CombatTab, "Target Part", {"Head", "HumanoidRootPart"}, "TargetPart", false)
+CreateSlider(CombatTab, "Smoothness", 1, 10, "Smoothness", false)
+CreateToggle(CombatTab, "Enable Trigger Bot", "TriggerBot")
+CreateSlider(CombatTab, "Trigger Delay (Secs)", 0, 1, "TriggerDelay", true)
+CreateToggle(CombatTab, "Anti-Cheat Bypass (Universal)", "AntiCheatBypass")
+
+-- Visuals Tab
+CreateToggle(VisualsTab, "Name ESP", "NameESP")
+CreateToggle(VisualsTab, "3D Box ESP", "BoxESP")
+CreateToggle(VisualsTab, "Tracers (Snaplines)", "Tracers")
+CreateToggle(VisualsTab, "Skeleton ESP", "SkeletonESP")
+CreateSlider(VisualsTab, "Max Render Distance", 100, 5000, "MaxDistance", false)
+CreateHueSpectrum(VisualsTab, "Master ESP Color", "ESP_Color")
+
+-----------------------------------
+-- 7. CORE RENDERING & LOGIC (REALISTIC 3D OVERHAUL)
+-----------------------------------
+local function IsVisible(targetPart)
+    if not QuantumConfig.WallCheck then return true end
+    local origin = Camera.CFrame.Position
+    local direction = (targetPart.Position - origin).Unit * (targetPart.Position - origin).Magnitude
+    local raycastParams = RaycastParams.new()
+    raycastParams.FilterDescendantsInstances = {LocalPlayer.Character}
+    raycastParams.FilterType = Enum.RaycastFilterType.Exclude
+    local result = workspace:Raycast(origin, direction, raycastParams)
+    return result == nil or targetPart.Parent:IsAncestorOf(result.Instance)
+end
+
+local SkeletonConnections = {
+    {"Head", "UpperTorso"}, {"Head", "Torso"},
+    {"UpperTorso", "LowerTorso"},
+    {"UpperTorso", "LeftUpperArm"}, {"LeftUpperArm", "LeftLowerArm"}, {"LeftLowerArm", "LeftHand"},
+    {"UpperTorso", "RightUpperArm"}, {"RightUpperArm", "RightLowerArm"}, {"RightLowerArm", "RightHand"},
+    {"LowerTorso", "LeftUpperLeg"}, {"LeftUpperLeg", "LeftLowerLeg"}, {"LeftLowerLeg", "LeftFoot"},
+    {"LowerTorso", "RightUpperLeg"}, {"RightUpperLeg", "RightLowerLeg"}, {"RightLowerLeg", "RightFoot"},
+    {"Torso", "Left Arm"}, {"Torso", "Right Arm"},
+    {"Torso", "Left Leg"}, {"Torso", "Right Leg"}
+}
+
+local BoxEdges = {
+    {1, 2}, {2, 3}, {3, 4}, {4, 1}, -- Top face
+    {5, 6}, {6, 7}, {7, 8}, {8, 5}, -- Bottom face
+    {1, 5}, {2, 6}, {3, 7}, {4, 8}  -- Connecting pillars
+}
+
+local function CreateESPData(player)
+    if ESP_Objects[player] then return end
+    local esp = { 
+        Name = Drawing.new("Text"), 
+        Tracer = Drawing.new("Line"),
+        BoxOutlines = {},
+        BoxLines = {},
+        BoneOutlines = {},
+        Bones = {}
+    }
+    
+    esp.Name.Size = 16 
+    esp.Name.Center = true 
+    esp.Name.Outline = true
+    esp.Tracer.Thickness = 1.5
+    
+    -- Create 12 lines for the 3D Box
+    for i = 1, 12 do
+        local bOut = Drawing.new("Line")
+        bOut.Thickness = 3
+        bOut.Color = Color3.new(0, 0, 0)
+        table.insert(esp.BoxOutlines, bOut)
+        
+        local bLine = Drawing.new("Line")
+        bLine.Thickness = 1
+        table.insert(esp.BoxLines, bLine)
+    end
+    
+    -- Create lines for Skeleton
+    for i = 1, #SkeletonConnections do
+        local outline = Drawing.new("Line")
+        outline.Thickness = 3
+        outline.Color = Color3.new(0, 0, 0)
+        table.insert(esp.BoneOutlines, outline)
+        
+        local line = Drawing.new("Line")
+        line.Thickness = 1
+        table.insert(esp.Bones, line)
+    end
+    
+    ESP_Objects[player] = esp
+end
+
+local function RemoveESPData(player)
+    if ESP_Objects[player] then
+        ESP_Objects[player].Name:Remove() 
+        ESP_Objects[player].Tracer:Remove()
+        
+        for _, l in pairs(ESP_Objects[player].BoxOutlines) do l:Remove() end
+        for _, l in pairs(ESP_Objects[player].BoxLines) do l:Remove() end
+        for _, l in pairs(ESP_Objects[player].BoneOutlines) do l:Remove() end
+        for _, l in pairs(ESP_Objects[player].Bones) do l:Remove() end
+        
+        ESP_Objects[player] = nil
+    end
+end
+
+Players.PlayerRemoving:Connect(RemoveESPData)
+
+local function GetClosestPlayerToCursor()
+    local closestPlayer = nil
+    local shortestDistance = QuantumConfig.FOVRadius
+    local mousePos = UserInputService:GetMouseLocation()
+    
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild(QuantumConfig.TargetPart) and player.Character:FindFirstChild("Humanoid") and player.Character.Humanoid.Health > 0 then
+            local targetPos, onScreen = Camera:WorldToViewportPoint(player.Character[QuantumConfig.TargetPart].Position)
+            if onScreen and IsVisible(player.Character[QuantumConfig.TargetPart]) then
+                local magnitude = (Vector2.new(targetPos.X, targetPos.Y) - mousePos).Magnitude
+                if magnitude < shortestDistance then
+                    closestPlayer = player
+                    shortestDistance = magnitude
+                end
+            end
+        end
+    end
+    return closestPlayer
+end
+
+local lastUpdate = tick()
+local lastTrigger = tick()
+local frames = 0
+
+RunService.RenderStepped:Connect(function()
+    pcall(function() -- Added safety wrapper for universal execution
+        local mousePos = UserInputService:GetMouseLocation()
+        local currentTime = tick()
+        frames = frames + 1
+        
+        if currentTime - lastUpdate >= 0.5 then
+            FPSLabel.Text = "FPS: " .. math.floor(frames / (currentTime - lastUpdate))
+            local success, result = pcall(function() return Stats.Network.ServerStatsItem["Data Ping"]:GetValueString() end)
+            PingLabel.Text = "Ping: " .. (success and result or "N/A")
+            frames = 0
+            lastUpdate = currentTime
+        end
+        
+        if QuantumConfig.ShowFOV then
+            FOVCircle.Visible = true
+            FOVCircle.Radius = QuantumConfig.FOVRadius
+            FOVCircle.Position = mousePos
+            FOVCircle.Color = Themes[QuantumConfig.Theme]
+        else
+            FOVCircle.Visible = false
+        end
+        
+        if QuantumConfig.Aimbot and UserInputService:IsMouseButtonPressed(QuantumConfig.AimbotKey) then
+            local target = GetClosestPlayerToCursor()
+            if target and target.Character then
+                local targetPart = target.Character:FindFirstChild(QuantumConfig.TargetPart)
+                if targetPart then
+                    local cameraCFrame = Camera.CFrame
+                    local newLookVector = (targetPart.Position - cameraCFrame.Position).Unit
+                    local targetCFrame = CFrame.new(cameraCFrame.Position, cameraCFrame.Position + newLookVector)
+                    Camera.CFrame = cameraCFrame:Lerp(targetCFrame, QuantumConfig.Smoothness / 10)
+                end
+            end
+        end
+        
+        if QuantumConfig.TriggerBot and currentTime - lastTrigger >= QuantumConfig.TriggerDelay then
+            local target = Mouse.Target
+            if target and target.Parent and target.Parent:FindFirstChild("Humanoid") and target.Parent.Name ~= LocalPlayer.Name then
+                if mouse1click then mouse1click() end
+                lastTrigger = currentTime
+            end
+        end
+        
+        for _, player in pairs(Players:GetPlayers()) do
+            if player ~= LocalPlayer then
+                if not ESP_Objects[player] then CreateESPData(player) end
+                local esp = ESP_Objects[player]
+                
+                if player.Character and player.Character:FindFirstChild("HumanoidRootPart") and player.Character:FindFirstChild("Humanoid") and player.Character.Humanoid.Health > 0 then
+                    local hrp = player.Character.HumanoidRootPart
+                    local head = player.Character:FindFirstChild("Head")
+                    
+                    if not head then continue end
+                    
+                    local vector, onScreen = Camera:WorldToViewportPoint(hrp.Position)
+                    local distance = (Camera.CFrame.Position - hrp.Position).Magnitude
+                    
+                    -- Realistic depth-based dynamic thickness
+                    local dynamicThickness = math.clamp(250 / distance, 1, 5)
+                    
+                    if onScreen and distance <= QuantumConfig.MaxDistance then
+                        
+                        -- 3D BOX ESP (REALISTIC)
+                        if QuantumConfig.BoxESP then
+                            local cf, size = player.Character:GetBoundingBox()
+                            local sx, sy, sz = (size.X/2) + 0.2, (size.Y/2) + 0.2, (size.Z/2) + 0.2
+                            
+                            local corners3D = {
+                                cf * CFrame.new(sx, sy, sz),
+                                cf * CFrame.new(-sx, sy, sz),
+                                cf * CFrame.new(-sx, -sy, sz),
+                                cf * CFrame.new(sx, -sy, sz),
+                                cf * CFrame.new(sx, sy, -sz),
+                                cf * CFrame.new(-sx, sy, -sz),
+                                cf * CFrame.new(-sx, -sy, -sz),
+                                cf * CFrame.new(sx, -sy, -sz)
+                            }
+                            
+                            local corners2D = {}
+                            local boxOnScreen = false
+                            for i = 1, 8 do
+                                local pt, vis = Camera:WorldToViewportPoint(corners3D[i].Position)
+                                corners2D[i] = Vector2.new(pt.X, pt.Y)
+                                if vis then boxOnScreen = true end
+                            end
+                            
+                            if boxOnScreen then
+                                for i, edge in ipairs(BoxEdges) do
+                                    esp.BoxOutlines[i].From = corners2D[edge[1]]
+                                    esp.BoxOutlines[i].To = corners2D[edge[2]]
+                                    esp.BoxOutlines[i].Thickness = dynamicThickness + 1.5
+                                    esp.BoxOutlines[i].Visible = true
+                                    
+                                    esp.BoxLines[i].From = corners2D[edge[1]]
+                                    esp.BoxLines[i].To = corners2D[edge[2]]
+                                    esp.BoxLines[i].Thickness = dynamicThickness
+                                    esp.BoxLines[i].Color = QuantumConfig.ESP_Color
+                                    esp.BoxLines[i].Visible = true
+                                end
+                            else
+                                for i = 1, 12 do esp.BoxOutlines[i].Visible = false esp.BoxLines[i].Visible = false end
+                            end
+                        else
+                            for i = 1, 12 do esp.BoxOutlines[i].Visible = false esp.BoxLines[i].Visible = false end
+                        end
+                        
+                        -- Name ESP
+                        if QuantumConfig.NameESP then
+                            local headPos = Camera:WorldToViewportPoint(head.Position + Vector3.new(0, 1, 0))
+                            esp.Name.Position = Vector2.new(vector.X, headPos.Y - 20)
+                            esp.Name.Text = player.Name .. " [" .. math.floor(distance) .. "s]"
+                            esp.Name.Color = QuantumConfig.ESP_Color
+                            esp.Name.Visible = true
+                        else
+                            esp.Name.Visible = false
+                        end
+                        
+                        -- Tracer ESP
+                        if QuantumConfig.Tracers then
+                            local legPos = Camera:WorldToViewportPoint(hrp.Position - Vector3.new(0, 3, 0))
+                            esp.Tracer.From = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y)
+                            esp.Tracer.To = Vector2.new(vector.X, legPos.Y)
+                            esp.Tracer.Color = QuantumConfig.ESP_Color
+                            esp.Tracer.Visible = true
+                        else
+                            esp.Tracer.Visible = false
+                        end
+                        
+                        -- Skeleton ESP (Realistic with depth thickness)
+                        if QuantumConfig.SkeletonESP then
+                            for i, connection in ipairs(SkeletonConnections) do
+                                local part1 = player.Character:FindFirstChild(connection[1])
+                                local part2 = player.Character:FindFirstChild(connection[2])
+                                
+                                if part1 and part2 then
+                                    local pos1, vis1 = Camera:WorldToViewportPoint(part1.Position)
+                                    local pos2, vis2 = Camera:WorldToViewportPoint(part2.Position)
+                                    
+                                    if vis1 or vis2 then
+                                        esp.BoneOutlines[i].From = Vector2.new(pos1.X, pos1.Y)
+                                        esp.BoneOutlines[i].To = Vector2.new(pos2.X, pos2.Y)
+                                        esp.BoneOutlines[i].Thickness = dynamicThickness + 1.5
+                                        esp.BoneOutlines[i].Visible = true
+                                        
+                                        esp.Bones[i].From = Vector2.new(pos1.X, pos1.Y)
+                                        esp.Bones[i].To = Vector2.new(pos2.X, pos2.Y)
+                                        esp.Bones[i].Thickness = dynamicThickness
+                                        esp.Bones[i].Color = QuantumConfig.ESP_Color
+                                        esp.Bones[i].Visible = true
+                                    else
+                                        esp.BoneOutlines[i].Visible = false
+                                        esp.Bones[i].Visible = false
+                                    end
+                                else
+                                    esp.BoneOutlines[i].Visible = false
+                                    esp.Bones[i].Visible = false
+                                end
+                            end
+                        else
+                            for _, outline in pairs(esp.BoneOutlines) do outline.Visible = false end
+                            for _, bone in pairs(esp.Bones) do bone.Visible = false end
+                        end
+                        
+                    else
+                        for i = 1, 12 do esp.BoxOutlines[i].Visible = false esp.BoxLines[i].Visible = false end
+                        esp.Name.Visible = false
+                        esp.Tracer.Visible = false
+                        for _, outline in pairs(esp.BoneOutlines) do outline.Visible = false end
+                        for _, bone in pairs(esp.Bones) do bone.Visible = false end
+                    end
+                else
+                    for i = 1, 12 do esp.BoxOutlines[i].Visible = false esp.BoxLines[i].Visible = false end
+                    esp.Name.Visible = false
+                    esp.Tracer.Visible = false
+                    for _, outline in pairs(esp.BoneOutlines) do outline.Visible = false end
+                    for _, bone in pairs(esp.Bones) do bone.Visible = false end
+                end
+            end
+        end
+    end)
+end)

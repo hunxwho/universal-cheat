@@ -40,7 +40,7 @@ local QuantumConfig = {
     WallCheck = false,
     ShowFOV = false,
     FOVRadius = 120,
-    Smoothness = 1,
+    Smoothness = 50, -- Now goes from 1 (Smooth) to 100 (Hard Lock)
     AimbotKey = Enum.UserInputType.MouseButton2,
     TargetPart = "Head",
     HitboxExpander = false,
@@ -105,12 +105,12 @@ local WorldOptionsList = {
 }
 
 local ThemeColors = {
-    Background = Color3.fromRGB(12, 12, 18),
-    Sidebar = Color3.fromRGB(17, 17, 26),
-    ElementBG = Color3.fromRGB(24, 24, 38),
-    ElementHover = Color3.fromRGB(34, 34, 54),
-    TextWhite = Color3.fromRGB(245, 245, 255),
-    TextGray = Color3.fromRGB(150, 150, 185)
+    Background = Color3.fromRGB(14, 15, 20),
+    NavBG = Color3.fromRGB(20, 21, 29),
+    CardBG = Color3.fromRGB(22, 24, 34),
+    CardHover = Color3.fromRGB(30, 33, 46),
+    TextWhite = Color3.fromRGB(250, 250, 255),
+    TextGray = Color3.fromRGB(140, 145, 175)
 }
 
 local ESP_Objects = {}
@@ -292,7 +292,7 @@ FOVCircle.Filled = false
 FOVCircle.NumSides = 64
 
 -----------------------------------
--- 4. OBSIDIAN GLASS GUI ARCHITECTURE
+-- 4. NOVA ENGINE GUI ARCHITECTURE
 -----------------------------------
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "QuantumScriptsPremium"
@@ -308,14 +308,14 @@ end
 
 -- Floating Toggle Button
 local OpenToggleButton = Instance.new("TextButton")
-OpenToggleButton.Size = UDim2.new(0, 50, 0, 50)
-OpenToggleButton.Position = UDim2.new(0, 25, 0.5, -25)
-OpenToggleButton.BackgroundColor3 = ThemeColors.ElementBG
+OpenToggleButton.Size = UDim2.new(0, 52, 0, 52)
+OpenToggleButton.Position = UDim2.new(0, 25, 0.5, -26)
+OpenToggleButton.BackgroundColor3 = ThemeColors.CardBG
 OpenToggleButton.Text = "QS"
 OpenToggleButton.TextColor3 = Themes[QuantumConfig.Theme]
 OpenToggleButton.Font = Enum.Font.GothamBold
 OpenToggleButton.TextSize = 18
-AddCorner(OpenToggleButton, 14)
+AddCorner(OpenToggleButton, 26)
 local ToggleStroke = AddStroke(OpenToggleButton, Themes[QuantumConfig.Theme], 1.5)
 OpenToggleButton.Parent = ScreenGui
 table.insert(ThemeElements, {inst = OpenToggleButton, prop = "TextColor3"})
@@ -323,36 +323,36 @@ table.insert(ThemeElements, {inst = ToggleStroke, prop = "Color"})
 
 -- Main Hub Container
 local MainFrame = Instance.new("CanvasGroup")
-MainFrame.Size = UDim2.new(0, 600, 0, 460)
-MainFrame.Position = UDim2.new(0.5, -300, 0.5, -230)
+MainFrame.Size = UDim2.new(0, 540, 0, 380)
+MainFrame.Position = UDim2.new(0.5, -270, 0.5, -190)
 MainFrame.BackgroundColor3 = ThemeColors.Background
 MainFrame.BorderSizePixel = 0
 MainFrame.GroupTransparency = 0
-AddCorner(MainFrame, 14)
-local MainStroke = AddStroke(MainFrame, Color3.fromRGB(65, 65, 95), 1.5)
+AddCorner(MainFrame, 16)
+local MainStroke = AddStroke(MainFrame, Color3.fromRGB(55, 60, 85), 1.5)
 MainFrame.Parent = ScreenGui
 
 local Topbar = Instance.new("Frame")
-Topbar.Size = UDim2.new(1, 0, 0, 50)
+Topbar.Size = UDim2.new(1, 0, 0, 56)
 Topbar.BackgroundTransparency = 1
 Topbar.Active = true
 Topbar.Parent = MainFrame
 
 local Title = Instance.new("TextLabel")
-Title.Size = UDim2.new(0, 240, 1, 0)
-Title.Position = UDim2.new(0, 22, 0, 0)
+Title.Size = UDim2.new(0, 180, 1, 0)
+Title.Position = UDim2.new(0, 24, 0, 0)
 Title.BackgroundTransparency = 1
-Title.Text = "QUANTUM SCRIPTS"
+Title.Text = "Quantum Hub universal script"
 Title.TextColor3 = Themes[QuantumConfig.Theme]
 Title.Font = Enum.Font.GothamBold
-Title.TextSize = 19
+Title.TextSize = 16
 Title.TextXAlignment = Enum.TextXAlignment.Left
 Title.Parent = Topbar
 table.insert(ThemeElements, {inst = Title, prop = "TextColor3"})
 
 local Subtitle = Instance.new("TextLabel")
-Subtitle.Size = UDim2.new(0, 150, 1, 0)
-Subtitle.Position = UDim2.new(1, -225, 0, 0)
+Subtitle.Size = UDim2.new(0, 130, 1, 0)
+Subtitle.Position = UDim2.new(1, -185, 0, 0)
 Subtitle.BackgroundTransparency = 1
 Subtitle.Text = "[Right Shift]"
 Subtitle.TextColor3 = ThemeColors.TextGray
@@ -362,88 +362,72 @@ Subtitle.TextXAlignment = Enum.TextXAlignment.Right
 Subtitle.Parent = Topbar
 
 local CloseButton = Instance.new("TextButton")
-CloseButton.Size = UDim2.new(0, 32, 0, 32)
-CloseButton.Position = UDim2.new(1, -45, 0.5, -16)
-CloseButton.BackgroundColor3 = Color3.fromRGB(35, 35, 50)
+CloseButton.Size = UDim2.new(0, 28, 0, 28)
+CloseButton.Position = UDim2.new(1, -42, 0.5, -14)
+CloseButton.BackgroundColor3 = Color3.fromRGB(35, 38, 52)
 CloseButton.Text = "×"
 CloseButton.TextColor3 = ThemeColors.TextWhite
 CloseButton.Font = Enum.Font.GothamBold
-CloseButton.TextSize = 20
-AddCorner(CloseButton, 8)
+CloseButton.TextSize = 18
+AddCorner(CloseButton, 14)
 CloseButton.Parent = Topbar
 
 CloseButton.MouseEnter:Connect(function()
     TweenService:Create(CloseButton, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(220, 50, 60)}):Play()
 end)
 CloseButton.MouseLeave:Connect(function()
-    TweenService:Create(CloseButton, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(35, 35, 50)}):Play()
+    TweenService:Create(CloseButton, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(35, 38, 52)}):Play()
 end)
 
-local Divider = Instance.new("Frame")
-Divider.Size = UDim2.new(1, 0, 0, 1)
-Divider.Position = UDim2.new(0, 0, 1, 0)
-Divider.BackgroundColor3 = Color3.fromRGB(40, 40, 60)
-Divider.BorderSizePixel = 0
-Divider.Parent = Topbar
+-- Horizontal Pill Navigation Bar
+local Navbar = Instance.new("Frame")
+Navbar.Size = UDim2.new(1, -40, 0, 36)
+Navbar.Position = UDim2.new(0, 20, 0, 56)
+Navbar.BackgroundColor3 = ThemeColors.NavBG
+Navbar.BorderSizePixel = 0
+AddCorner(Navbar, 18)
+Navbar.Parent = MainFrame
 
-local Sidebar = Instance.new("Frame")
-Sidebar.Size = UDim2.new(0, 155, 1, -85)
-Sidebar.Position = UDim2.new(0, 0, 0, 51)
-Sidebar.BackgroundColor3 = ThemeColors.Sidebar
-Sidebar.BackgroundTransparency = 0.15
-Sidebar.BorderSizePixel = 0
-AddCorner(Sidebar, 12)
-Sidebar.Parent = MainFrame
-
-local SidebarLayout = Instance.new("UIListLayout")
-SidebarLayout.SortOrder = Enum.SortOrder.LayoutOrder
-SidebarLayout.Padding = UDim.new(0, 8)
-SidebarLayout.Parent = Sidebar
-
-local SidebarPad = Instance.new("UIPadding")
-SidebarPad.PaddingTop = UDim.new(0, 14)
-SidebarPad.PaddingLeft = UDim.new(0, 12)
-SidebarPad.PaddingRight = UDim.new(0, 12)
-SidebarPad.Parent = Sidebar
+local NavLayout = Instance.new("UIListLayout")
+NavLayout.FillDirection = Enum.FillDirection.Horizontal
+NavLayout.SortOrder = Enum.SortOrder.LayoutOrder
+NavLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+NavLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+NavLayout.Padding = UDim.new(0, 6)
+NavLayout.Parent = Navbar
 
 local Content = Instance.new("Frame")
-Content.Size = UDim2.new(1, -168, 1, -85)
-Content.Position = UDim2.new(0, 168, 0, 51)
+Content.Size = UDim2.new(1, -40, 1, -145)
+Content.Position = UDim2.new(0, 20, 0, 102)
 Content.BackgroundTransparency = 1
 Content.Parent = MainFrame
 
+-- Floating Bottom Stat Ribbon
 local BottomBar = Instance.new("Frame")
-BottomBar.Size = UDim2.new(1, 0, 0, 34)
-BottomBar.Position = UDim2.new(0, 0, 1, -34)
-BottomBar.BackgroundColor3 = ThemeColors.Sidebar
+BottomBar.Size = UDim2.new(1, -40, 0, 28)
+BottomBar.Position = UDim2.new(0, 20, 1, -36)
+BottomBar.BackgroundColor3 = ThemeColors.NavBG
 BottomBar.BorderSizePixel = 0
-AddCorner(BottomBar, 12)
+AddCorner(BottomBar, 14)
 BottomBar.Parent = MainFrame
 
-local BottomDivider = Instance.new("Frame")
-BottomDivider.Size = UDim2.new(1, 0, 0, 1)
-BottomDivider.Position = UDim2.new(0, 0, 0, 0)
-BottomDivider.BackgroundColor3 = Color3.fromRGB(40, 40, 60)
-BottomDivider.BorderSizePixel = 0
-BottomDivider.Parent = BottomBar
-
 local FPSLabel = Instance.new("TextLabel")
-FPSLabel.Size = UDim2.new(0, 120, 1, 0)
-FPSLabel.Position = UDim2.new(0, 22, 0, 0)
+FPSLabel.Size = UDim2.new(0, 110, 1, 0)
+FPSLabel.Position = UDim2.new(0, 16, 0, 0)
 FPSLabel.BackgroundTransparency = 1
 FPSLabel.TextColor3 = ThemeColors.TextGray
 FPSLabel.Font = Enum.Font.GothamMedium
-FPSLabel.TextSize = 12
+FPSLabel.TextSize = 11
 FPSLabel.TextXAlignment = Enum.TextXAlignment.Left
 FPSLabel.Parent = BottomBar
 
 local PingLabel = Instance.new("TextLabel")
-PingLabel.Size = UDim2.new(0, 120, 1, 0)
-PingLabel.Position = UDim2.new(0, 140, 0, 0)
+PingLabel.Size = UDim2.new(0, 110, 1, 0)
+PingLabel.Position = UDim2.new(0, 120, 0, 0)
 PingLabel.BackgroundTransparency = 1
 PingLabel.TextColor3 = ThemeColors.TextGray
 PingLabel.Font = Enum.Font.GothamMedium
-PingLabel.TextSize = 12
+PingLabel.TextSize = 11
 PingLabel.TextXAlignment = Enum.TextXAlignment.Left
 PingLabel.Parent = BottomBar
 
@@ -452,27 +436,17 @@ local currentTabName = ""
 
 local function CreateTab(name)
     local TabButton = Instance.new("TextButton")
-    TabButton.Size = UDim2.new(1, 0, 0, 38)
-    TabButton.BackgroundColor3 = ThemeColors.Sidebar
+    TabButton.Size = UDim2.new(0, 115, 0, 28)
+    TabButton.BackgroundColor3 = ThemeColors.NavBG
     TabButton.Text = name
     TabButton.TextColor3 = ThemeColors.TextGray
     TabButton.Font = Enum.Font.GothamSemibold
-    TabButton.TextSize = 14
-    AddCorner(TabButton, 10)
-    TabButton.Parent = Sidebar
-    
-    local Indicator = Instance.new("Frame")
-    Indicator.Size = UDim2.new(0, 3, 0, 0)
-    Indicator.Position = UDim2.new(0, 0, 0.5, 0)
-    Indicator.BackgroundColor3 = Themes[QuantumConfig.Theme]
-    Indicator.BorderSizePixel = 0
-    AddCorner(Indicator, 2)
-    Indicator.Parent = TabButton
-    table.insert(ThemeElements, {inst = Indicator, prop = "BackgroundColor3"})
+    TabButton.TextSize = 13
+    AddCorner(TabButton, 14)
+    TabButton.Parent = Navbar
     
     local TabFrame = Instance.new("ScrollingFrame")
-    TabFrame.Size = UDim2.new(1, 0, 1, -12)
-    TabFrame.Position = UDim2.new(0, 0, 0, 12)
+    TabFrame.Size = UDim2.new(1, 0, 1, 0)
     TabFrame.BackgroundTransparency = 1
     TabFrame.BorderSizePixel = 0
     TabFrame.ScrollBarThickness = 3
@@ -482,18 +456,23 @@ local function CreateTab(name)
     TabFrame.Parent = Content
     
     local Layout = Instance.new("UIListLayout")
-    Layout.Padding = UDim.new(0, 10)
+    Layout.Padding = UDim.new(0, 8)
     Layout.SortOrder = Enum.SortOrder.LayoutOrder
     Layout.Parent = TabFrame
     
     local Padding = Instance.new("UIPadding")
-    Padding.PaddingRight = UDim.new(0, 14)
+    Padding.PaddingRight = UDim.new(0, 10)
     Padding.Parent = TabFrame
     
-    Tabs[name] = {Button = TabButton, Frame = TabFrame, Indicator = Indicator}
+    Tabs[name] = {Button = TabButton, Frame = TabFrame}
     table.insert(ThemeElements, {
         inst = TabButton, 
         prop = "TextColor3", 
+        condition = function() return currentTabName == name end
+    })
+    table.insert(ThemeElements, {
+        inst = TabButton, 
+        prop = "BackgroundColor3", 
         condition = function() return currentTabName == name end
     })
     
@@ -504,13 +483,8 @@ local function CreateTab(name)
             tab.Frame.Visible = isSelected
             
             TweenService:Create(tab.Button, TweenInfo.new(0.25), {
-                TextColor3 = isSelected and Themes[QuantumConfig.Theme] or ThemeColors.TextGray,
-                BackgroundColor3 = isSelected and ThemeColors.ElementBG or ThemeColors.Sidebar
-            }):Play()
-            
-            TweenService:Create(tab.Indicator, TweenInfo.new(0.25, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
-                Size = isSelected and UDim2.new(0, 3, 0.6, 0) or UDim2.new(0, 3, 0, 0),
-                Position = isSelected and UDim2.new(0, 0, 0.2, 0) or UDim2.new(0, 0, 0.5, 0)
+                TextColor3 = isSelected and Color3.fromRGB(255, 255, 255) or ThemeColors.TextGray,
+                BackgroundColor3 = isSelected and Themes[QuantumConfig.Theme] or ThemeColors.NavBG
             }):Play()
         end
     end)
@@ -518,15 +492,15 @@ local function CreateTab(name)
 end
 
 -----------------------------------
--- 5. ANIMATED COMPONENT LIBRARY
+-- 5. NEW LED CARD-BASED COMPONENTS
 -----------------------------------
 local function CreateToggle(parent, name, configKey)
     local Frame = Instance.new("TextButton")
-    Frame.Size = UDim2.new(1, 0, 0, 46)
-    Frame.BackgroundColor3 = ThemeColors.ElementBG
+    Frame.Size = UDim2.new(1, 0, 0, 44)
+    Frame.BackgroundColor3 = ThemeColors.CardBG
     Frame.Text = ""
     AddCorner(Frame, 12)
-    local FrameStroke = AddStroke(Frame, Color3.fromRGB(45, 45, 65), 1)
+    local FrameStroke = AddStroke(Frame, Color3.fromRGB(38, 42, 60), 1)
     Frame.Parent = parent
     
     local Label = Instance.new("TextLabel")
@@ -536,37 +510,42 @@ local function CreateToggle(parent, name, configKey)
     Label.Text = name
     Label.TextColor3 = ThemeColors.TextWhite
     Label.Font = Enum.Font.GothamSemibold
-    Label.TextSize = 14
+    Label.TextSize = 13
     Label.TextXAlignment = Enum.TextXAlignment.Left
     Label.Parent = Frame
     
     local SwitchBG = Instance.new("Frame")
-    SwitchBG.Size = UDim2.new(0, 44, 0, 24)
-    SwitchBG.Position = UDim2.new(1, -60, 0.5, -12)
-    SwitchBG.BackgroundColor3 = Color3.fromRGB(45, 45, 60)
-    AddCorner(SwitchBG, 12)
+    SwitchBG.Size = UDim2.new(0, 36, 0, 18)
+    SwitchBG.Position = UDim2.new(1, -50, 0.5, -9)
+    SwitchBG.BackgroundColor3 = Color3.fromRGB(35, 38, 52)
+    AddCorner(SwitchBG, 9)
     SwitchBG.Parent = Frame
     
-    local SwitchKnob = Instance.new("Frame")
-    SwitchKnob.Size = UDim2.new(0, 18, 0, 18)
-    SwitchKnob.Position = UDim2.new(0, 3, 0.5, -9)
-    SwitchKnob.BackgroundColor3 = ThemeColors.TextWhite
-    AddCorner(SwitchKnob, 9)
-    SwitchKnob.Parent = SwitchBG
+    local SwitchLED = Instance.new("Frame")
+    SwitchLED.Size = UDim2.new(0, 12, 0, 12)
+    SwitchLED.Position = UDim2.new(0, 3, 0.5, -6)
+    SwitchLED.BackgroundColor3 = Color3.fromRGB(110, 115, 140)
+    AddCorner(SwitchLED, 6)
+    SwitchLED.Parent = SwitchBG
     
     table.insert(ThemeElements, {
         inst = SwitchBG, 
         prop = "BackgroundColor3", 
         condition = function() return QuantumConfig[configKey] end
     })
+    table.insert(ThemeElements, {
+        inst = SwitchLED, 
+        prop = "BackgroundColor3", 
+        condition = function() return QuantumConfig[configKey] end
+    })
     
     Frame.MouseEnter:Connect(function() 
-        TweenService:Create(Frame, TweenInfo.new(0.2), {BackgroundColor3 = ThemeColors.ElementHover}):Play() 
+        TweenService:Create(Frame, TweenInfo.new(0.2), {BackgroundColor3 = ThemeColors.CardHover}):Play() 
         TweenService:Create(FrameStroke, TweenInfo.new(0.2), {Color = Themes[QuantumConfig.Theme]}):Play()
     end)
     Frame.MouseLeave:Connect(function() 
-        TweenService:Create(Frame, TweenInfo.new(0.2), {BackgroundColor3 = ThemeColors.ElementBG}):Play() 
-        TweenService:Create(FrameStroke, TweenInfo.new(0.2), {Color = Color3.fromRGB(45, 45, 65)}):Play()
+        TweenService:Create(Frame, TweenInfo.new(0.2), {BackgroundColor3 = ThemeColors.CardBG}):Play() 
+        TweenService:Create(FrameStroke, TweenInfo.new(0.2), {Color = Color3.fromRGB(38, 42, 60)}):Play()
     end)
     
     local isAnimating = false
@@ -576,69 +555,66 @@ local function CreateToggle(parent, name, configKey)
         QuantumConfig[configKey] = not QuantumConfig[configKey]
         local state = QuantumConfig[configKey]
         
-        TweenService:Create(Frame, TweenInfo.new(0.1), {Size = UDim2.new(0.985, 0, 0, 44)}):Play()
-        TweenService:Create(SwitchKnob, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-            Size = UDim2.new(0, 26, 0, 18),
-            Position = state and UDim2.new(0, 3, 0.5, -9) or UDim2.new(1, -29, 0.5, -9)
+        TweenService:Create(Frame, TweenInfo.new(0.1), {Size = UDim2.new(0.985, 0, 0, 42)}):Play()
+        TweenService:Create(SwitchLED, TweenInfo.new(0.25, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+            Position = state and UDim2.new(1, -15, 0.5, -6) or UDim2.new(0, 3, 0.5, -6),
+            BackgroundColor3 = state and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(110, 115, 140)
         }):Play()
         
         TweenService:Create(SwitchBG, TweenInfo.new(0.3), {
-            BackgroundColor3 = state and Themes[QuantumConfig.Theme] or Color3.fromRGB(45, 45, 60)
+            BackgroundColor3 = state and Themes[QuantumConfig.Theme] or Color3.fromRGB(35, 38, 52)
         }):Play()
+        
         task.wait(0.1)
-        TweenService:Create(Frame, TweenInfo.new(0.2, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Size = UDim2.new(1, 0, 0, 46)}):Play()
-        TweenService:Create(SwitchKnob, TweenInfo.new(0.25, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-            Size = UDim2.new(0, 18, 0, 18),
-            Position = state and UDim2.new(1, -21, 0.5, -9) or UDim2.new(0, 3, 0.5, -9)
-        }):Play()
-        task.wait(0.2)
+        TweenService:Create(Frame, TweenInfo.new(0.2, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Size = UDim2.new(1, 0, 0, 44)}):Play()
+        task.wait(0.15)
         isAnimating = false
     end)
 end
 
 local function CreateSlider(parent, name, min, max, configKey, isFloat)
     local Frame = Instance.new("Frame")
-    Frame.Size = UDim2.new(1, 0, 0, 58)
-    Frame.BackgroundColor3 = ThemeColors.ElementBG
+    Frame.Size = UDim2.new(1, 0, 0, 54)
+    Frame.BackgroundColor3 = ThemeColors.CardBG
     AddCorner(Frame, 12)
-    local FrameStroke = AddStroke(Frame, Color3.fromRGB(45, 45, 65), 1)
+    local FrameStroke = AddStroke(Frame, Color3.fromRGB(38, 42, 60), 1)
     Frame.Parent = parent
     
     Frame.MouseEnter:Connect(function() 
-        TweenService:Create(Frame, TweenInfo.new(0.2), {BackgroundColor3 = ThemeColors.ElementHover}):Play() 
+        TweenService:Create(Frame, TweenInfo.new(0.2), {BackgroundColor3 = ThemeColors.CardHover}):Play() 
         TweenService:Create(FrameStroke, TweenInfo.new(0.2), {Color = Themes[QuantumConfig.Theme]}):Play()
     end)
     Frame.MouseLeave:Connect(function() 
-        TweenService:Create(Frame, TweenInfo.new(0.2), {BackgroundColor3 = ThemeColors.ElementBG}):Play() 
-        TweenService:Create(FrameStroke, TweenInfo.new(0.2), {Color = Color3.fromRGB(45, 45, 65)}):Play()
+        TweenService:Create(Frame, TweenInfo.new(0.2), {BackgroundColor3 = ThemeColors.CardBG}):Play() 
+        TweenService:Create(FrameStroke, TweenInfo.new(0.2), {Color = Color3.fromRGB(38, 42, 60)}):Play()
     end)
     
     local Label = Instance.new("TextLabel")
-    Label.Size = UDim2.new(1, -80, 0, 22)
+    Label.Size = UDim2.new(1, -80, 0, 20)
     Label.Position = UDim2.new(0, 16, 0, 8)
     Label.BackgroundTransparency = 1
     Label.Text = name
     Label.TextColor3 = ThemeColors.TextWhite
     Label.Font = Enum.Font.GothamSemibold
-    Label.TextSize = 14
+    Label.TextSize = 13
     Label.TextXAlignment = Enum.TextXAlignment.Left
     Label.Parent = Frame
     
     local ValueLabel = Instance.new("TextLabel")
-    ValueLabel.Size = UDim2.new(0, 60, 0, 22)
+    ValueLabel.Size = UDim2.new(0, 60, 0, 20)
     ValueLabel.Position = UDim2.new(1, -76, 0, 8)
     ValueLabel.BackgroundTransparency = 1
     ValueLabel.Text = tostring(QuantumConfig[configKey])
     ValueLabel.TextColor3 = Themes[QuantumConfig.Theme]
     ValueLabel.Font = Enum.Font.GothamBold
-    ValueLabel.TextSize = 14
+    ValueLabel.TextSize = 13
     ValueLabel.TextXAlignment = Enum.TextXAlignment.Right
     ValueLabel.Parent = Frame
     
     local SliderBG = Instance.new("TextButton")
     SliderBG.Size = UDim2.new(1, -32, 0, 6)
-    SliderBG.Position = UDim2.new(0, 16, 0, 38)
-    SliderBG.BackgroundColor3 = Color3.fromRGB(45, 45, 60)
+    SliderBG.Position = UDim2.new(0, 16, 0, 36)
+    SliderBG.BackgroundColor3 = Color3.fromRGB(35, 38, 52)
     SliderBG.Text = ""
     AddCorner(SliderBG, 3)
     SliderBG.Parent = Frame
@@ -686,20 +662,20 @@ end
 
 local function CreateCycle(parent, name, options, configKey, isThemeCycle)
     local Frame = Instance.new("TextButton")
-    Frame.Size = UDim2.new(1, 0, 0, 46)
-    Frame.BackgroundColor3 = ThemeColors.ElementBG
+    Frame.Size = UDim2.new(1, 0, 0, 44)
+    Frame.BackgroundColor3 = ThemeColors.CardBG
     Frame.Text = ""
     AddCorner(Frame, 12)
-    local FrameStroke = AddStroke(Frame, Color3.fromRGB(45, 45, 65), 1)
+    local FrameStroke = AddStroke(Frame, Color3.fromRGB(38, 42, 60), 1)
     Frame.Parent = parent
     
     Frame.MouseEnter:Connect(function() 
-        TweenService:Create(Frame, TweenInfo.new(0.2), {BackgroundColor3 = ThemeColors.ElementHover}):Play() 
+        TweenService:Create(Frame, TweenInfo.new(0.2), {BackgroundColor3 = ThemeColors.CardHover}):Play() 
         TweenService:Create(FrameStroke, TweenInfo.new(0.2), {Color = Themes[QuantumConfig.Theme]}):Play()
     end)
     Frame.MouseLeave:Connect(function() 
-        TweenService:Create(Frame, TweenInfo.new(0.2), {BackgroundColor3 = ThemeColors.ElementBG}):Play() 
-        TweenService:Create(FrameStroke, TweenInfo.new(0.2), {Color = Color3.fromRGB(45, 45, 65)}):Play()
+        TweenService:Create(Frame, TweenInfo.new(0.2), {BackgroundColor3 = ThemeColors.CardBG}):Play() 
+        TweenService:Create(FrameStroke, TweenInfo.new(0.2), {Color = Color3.fromRGB(38, 42, 60)}):Play()
     end)
     
     local Label = Instance.new("TextLabel")
@@ -709,14 +685,14 @@ local function CreateCycle(parent, name, options, configKey, isThemeCycle)
     Label.Text = name
     Label.TextColor3 = ThemeColors.TextWhite
     Label.Font = Enum.Font.GothamSemibold
-    Label.TextSize = 14
+    Label.TextSize = 13
     Label.TextXAlignment = Enum.TextXAlignment.Left
     Label.Parent = Frame
     
     local ValueBox = Instance.new("Frame")
-    ValueBox.Size = UDim2.new(0, 125, 0, 28)
-    ValueBox.Position = UDim2.new(1, -140, 0.5, -14)
-    ValueBox.BackgroundColor3 = Color3.fromRGB(38, 38, 52)
+    ValueBox.Size = UDim2.new(0, 120, 0, 26)
+    ValueBox.Position = UDim2.new(1, -134, 0.5, -13)
+    ValueBox.BackgroundColor3 = Color3.fromRGB(35, 38, 52)
     AddCorner(ValueBox, 8)
     ValueBox.Parent = Frame
     
@@ -725,7 +701,7 @@ local function CreateCycle(parent, name, options, configKey, isThemeCycle)
     ValueText.BackgroundTransparency = 1
     ValueText.TextColor3 = Themes[QuantumConfig.Theme]
     ValueText.Font = Enum.Font.GothamBold
-    ValueText.TextSize = 12
+    ValueText.TextSize = 11
     ValueText.Parent = ValueBox
     table.insert(ThemeElements, {inst = ValueText, prop = "TextColor3"})
     
@@ -739,9 +715,9 @@ local function CreateCycle(parent, name, options, configKey, isThemeCycle)
     ValueText.Text = options[index]
     
     Frame.MouseButton1Click:Connect(function()
-        TweenService:Create(Frame, TweenInfo.new(0.1), {Size = UDim2.new(0.985, 0, 0, 44)}):Play()
+        TweenService:Create(Frame, TweenInfo.new(0.1), {Size = UDim2.new(0.985, 0, 0, 42)}):Play()
         task.wait(0.1)
-        TweenService:Create(Frame, TweenInfo.new(0.2, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Size = UDim2.new(1, 0, 0, 46)}):Play()
+        TweenService:Create(Frame, TweenInfo.new(0.2, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Size = UDim2.new(1, 0, 0, 44)}):Play()
         index = index + 1
         if index > #options then index = 1 end
         QuantumConfig[configKey] = options[index]
@@ -753,42 +729,42 @@ end
 
 local function CreateHueSpectrum(parent, name, configKey)
     local Frame = Instance.new("Frame")
-    Frame.Size = UDim2.new(1, 0, 0, 68)
-    Frame.BackgroundColor3 = ThemeColors.ElementBG
+    Frame.Size = UDim2.new(1, 0, 0, 64)
+    Frame.BackgroundColor3 = ThemeColors.CardBG
     AddCorner(Frame, 12)
-    local FrameStroke = AddStroke(Frame, Color3.fromRGB(45, 45, 65), 1)
+    local FrameStroke = AddStroke(Frame, Color3.fromRGB(38, 42, 60), 1)
     Frame.Parent = parent
     
     Frame.MouseEnter:Connect(function() 
-        TweenService:Create(Frame, TweenInfo.new(0.2), {BackgroundColor3 = ThemeColors.ElementHover}):Play() 
+        TweenService:Create(Frame, TweenInfo.new(0.2), {BackgroundColor3 = ThemeColors.CardHover}):Play() 
         TweenService:Create(FrameStroke, TweenInfo.new(0.2), {Color = Themes[QuantumConfig.Theme]}):Play()
     end)
     Frame.MouseLeave:Connect(function() 
-        TweenService:Create(Frame, TweenInfo.new(0.2), {BackgroundColor3 = ThemeColors.ElementBG}):Play() 
-        TweenService:Create(FrameStroke, TweenInfo.new(0.2), {Color = Color3.fromRGB(45, 45, 65)}):Play()
+        TweenService:Create(Frame, TweenInfo.new(0.2), {BackgroundColor3 = ThemeColors.CardBG}):Play() 
+        TweenService:Create(FrameStroke, TweenInfo.new(0.2), {Color = Color3.fromRGB(38, 42, 60)}):Play()
     end)
     
     local Label = Instance.new("TextLabel")
-    Label.Size = UDim2.new(1, -60, 0, 22)
+    Label.Size = UDim2.new(1, -60, 0, 20)
     Label.Position = UDim2.new(0, 16, 0, 8)
     Label.BackgroundTransparency = 1
     Label.Text = name
     Label.TextColor3 = ThemeColors.TextWhite
     Label.Font = Enum.Font.GothamSemibold
-    Label.TextSize = 14
+    Label.TextSize = 13
     Label.TextXAlignment = Enum.TextXAlignment.Left
     Label.Parent = Frame
     
     local PreviewBox = Instance.new("Frame")
-    PreviewBox.Size = UDim2.new(0, 24, 0, 24)
-    PreviewBox.Position = UDim2.new(1, -40, 0, 8)
+    PreviewBox.Size = UDim2.new(0, 20, 0, 20)
+    PreviewBox.Position = UDim2.new(1, -36, 0, 8)
     PreviewBox.BackgroundColor3 = QuantumConfig[configKey]
     AddCorner(PreviewBox, 6)
     PreviewBox.Parent = Frame
     
     local SliderBG = Instance.new("TextButton")
-    SliderBG.Size = UDim2.new(1, -32, 0, 14)
-    SliderBG.Position = UDim2.new(0, 16, 0, 42)
+    SliderBG.Size = UDim2.new(1, -32, 0, 12)
+    SliderBG.Position = UDim2.new(0, 16, 0, 38)
     SliderBG.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
     SliderBG.Text = ""
     AddCorner(SliderBG, 6)
@@ -846,13 +822,13 @@ local function ToggleMenu()
         MainFrame.Active = true
         TweenService:Create(MainFrame, TweenInfo.new(0.25, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
             GroupTransparency = 0,
-            Size = UDim2.new(0, 600, 0, 460)
+            Size = UDim2.new(0, 540, 0, 380)
         }):Play()
     else
         MainFrame.Active = false
         TweenService:Create(MainFrame, TweenInfo.new(0.2, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
             GroupTransparency = 1,
-            Size = UDim2.new(0, 580, 0, 440)
+            Size = UDim2.new(0, 520, 0, 365)
         }):Play()
         task.delay(0.2, function()
             if not QuantumConfig.MenuOpen then
@@ -928,10 +904,8 @@ local WorldTab = CreateTab("World")
 local SettingsTab = CreateTab("Settings")
 
 currentTabName = "Combat"
-Tabs["Combat"].Button.BackgroundColor3 = ThemeColors.ElementBG
-Tabs["Combat"].Button.TextColor3 = Themes[QuantumConfig.Theme]
-Tabs["Combat"].Indicator.Size = UDim2.new(0, 3, 0.6, 0)
-Tabs["Combat"].Indicator.Position = UDim2.new(0, 0, 0.2, 0)
+Tabs["Combat"].Button.BackgroundColor3 = Themes[QuantumConfig.Theme]
+Tabs["Combat"].Button.TextColor3 = Color3.fromRGB(255, 255, 255)
 Tabs["Combat"].Frame.Visible = true
 
 -- World Elements
@@ -957,7 +931,7 @@ CreateToggle(CombatTab, "Wall Check (Visibility)", "WallCheck")
 CreateToggle(CombatTab, "Show FOV Circle", "ShowFOV")
 CreateSlider(CombatTab, "FOV Radius", 50, 800, "FOVRadius", false)
 CreateCycle(CombatTab, "Aimbot Part", {"Head", "HumanoidRootPart"}, "TargetPart", false)
-CreateSlider(CombatTab, "Smoothness", 1, 10, "Smoothness", false)
+CreateSlider(CombatTab, "Aimbot Lock Speed (1=Smooth, 100=Hard)", 1, 100, "Smoothness", false)
 CreateToggle(CombatTab, "Enable Trigger Bot", "TriggerBot")
 CreateSlider(CombatTab, "Trigger Delay (Secs)", 0, 1, "TriggerDelay", true)
 CreateToggle(CombatTab, "Hitbox Expander", "HitboxExpander")
@@ -1227,7 +1201,7 @@ RunService.RenderStepped:Connect(function()
                     local cameraCFrame = Camera.CFrame
                     local newLookVector = (targetPart.Position - cameraCFrame.Position).Unit
                     local targetCFrame = CFrame.new(cameraCFrame.Position, cameraCFrame.Position + newLookVector)
-                    Camera.CFrame = cameraCFrame:Lerp(targetCFrame, QuantumConfig.Smoothness / 10)
+                    Camera.CFrame = cameraCFrame:Lerp(targetCFrame, QuantumConfig.Smoothness / 100)
                 end
             end
         end

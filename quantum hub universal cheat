@@ -47,9 +47,10 @@ local OriginalLighting = {
 -- 1. CONFIGURATION & STATE
 -----------------------------------
 local QuantumConfig = {
-    -- Global & Bot Support
+    -- Global & Universal AI/Bot Support
     TeamCheck = false,
     IncludeBots = true,
+    IgnoreForceField = false,
     
     -- Combat
     Aimbot = false,
@@ -66,7 +67,7 @@ local QuantumConfig = {
     ShowFOV = false,
     FilledFOV = false,
     FOVRadius = 150,
-    Smoothness = 50,
+    Smoothness = 45, -- Default safe (< 70%)
     AimbotKey = Enum.UserInputType.MouseButton2,
     AimbotKeyName = "MouseButton2",
     TargetPart = "Head",
@@ -86,7 +87,7 @@ local QuantumConfig = {
     SkeletonESP = false,
     ChamsESP = false,
     RainbowESP = false,
-    MaxDistance = 1500,
+    MaxDistance = 2000,
     ESP_Color = Color3.fromRGB(255, 45, 85),
 
     -- Movement & LocalPlayer
@@ -160,11 +161,14 @@ local ThemeColors = {
     CardHover = Color3.fromRGB(29, 32, 46),
     ControlBG = Color3.fromRGB(34, 37, 52),
     TextWhite = Color3.fromRGB(245, 247, 255),
-    TextGray = Color3.fromRGB(140, 146, 175)
+    TextGray = Color3.fromRGB(140, 146, 175),
+    WarningOrange = Color3.fromRGB(255, 165, 30),
+    DangerRed = Color3.fromRGB(255, 55, 65)
 }
 
 local ESP_Objects = {}
-local ActiveEntities = {}
+local ActiveEntities = {}       -- [Model] = {Model = model, Player = playerOrNil, IsBot = boolean, Name = string}
+local DiscoveredBotModels = {}  -- [Model] = true (Populated by deep workspace scanner + DescendantAdded)
 local OriginalPartProperties = {}
 local LocalPlayerNoclipCache = {}
 local ThemeElements = {}
@@ -413,10 +417,10 @@ if not guiSuccess then
     ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
 end
 
--- Toast Notification System
+-- Toast Notification System (Supports Standard & High-Risk Anti-Cheat Alerts)
 local NotifContainer = Instance.new("Frame")
-NotifContainer.Size = UDim2.new(0, 260, 0, 220)
-NotifContainer.Position = UDim2.new(1, -276, 1, -236)
+NotifContainer.Size = UDim2.new(0, 280, 0, 240)
+NotifContainer.Position = UDim2.new(1, -296, 1, -256)
 NotifContainer.BackgroundTransparency = 1
 NotifContainer.Parent = ScreenGui
 
@@ -426,14 +430,16 @@ NotifLayout.HorizontalAlignment = Enum.HorizontalAlignment.Right
 NotifLayout.Padding = UDim.new(0, 8)
 NotifLayout.Parent = NotifContainer
 
-local function Notify(titleText, bodyText, duration)
+local function Notify(titleText, bodyText, duration, isWarning)
     task.spawn(function()
+        local accentColor = isWarning and ThemeColors.WarningOrange or Themes[QuantumConfig.Theme]
+
         local Card = Instance.new("Frame")
-        Card.Size = UDim2.new(1, 0, 0, 52)
-        Card.BackgroundColor3 = ThemeColors.CardBG
+        Card.Size = UDim2.new(1, 0, 0, 54)
+        Card.BackgroundColor3 = isWarning and Color3.fromRGB(32, 22, 18) or ThemeColors.CardBG
         Card.BackgroundTransparency = 1
         AddCorner(Card, 10)
-        local Stroke = AddStroke(Card, Themes[QuantumConfig.Theme], 1.2)
+        local Stroke = AddStroke(Card, accentColor, 1.4)
         Stroke.Transparency = 1
         Card.Parent = NotifContainer
 
@@ -442,7 +448,7 @@ local function Notify(titleText, bodyText, duration)
         TLabel.Position = UDim2.new(0, 12, 0, 6)
         TLabel.BackgroundTransparency = 1
         TLabel.Text = titleText
-        TLabel.TextColor3 = Themes[QuantumConfig.Theme]
+        TLabel.TextColor3 = accentColor
         TLabel.Font = Enum.Font.GothamBold
         TLabel.TextSize = 12
         TLabel.TextXAlignment = Enum.TextXAlignment.Left
@@ -450,29 +456,30 @@ local function Notify(titleText, bodyText, duration)
         TLabel.Parent = Card
 
         local BLabel = Instance.new("TextLabel")
-        BLabel.Size = UDim2.new(1, -20, 0, 18)
-        BLabel.Position = UDim2.new(0, 12, 0, 25)
+        BLabel.Size = UDim2.new(1, -20, 0, 22)
+        BLabel.Position = UDim2.new(0, 12, 0, 24)
         BLabel.BackgroundTransparency = 1
         BLabel.Text = bodyText
         BLabel.TextColor3 = ThemeColors.TextWhite
         BLabel.Font = Enum.Font.GothamMedium
         BLabel.TextSize = 11
+        BLabel.TextWrapped = true
         BLabel.TextXAlignment = Enum.TextXAlignment.Left
         BLabel.TextTransparency = 1
         BLabel.Parent = Card
 
-        TweenService:Create(Card, TweenInfo.new(0.25), {BackgroundTransparency = 0.05}):Play()
-        TweenService:Create(Stroke, TweenInfo.new(0.25), {Transparency = 0}):Play()
-        TweenService:Create(TLabel, TweenInfo.new(0.25), {TextTransparency = 0}):Play()
-        TweenService:Create(BLabel, TweenInfo.new(0.25), {TextTransparency = 0}):Play()
+        TweenService:Create(Card, TweenInfo.new(0.22), {BackgroundTransparency = 0.04}):Play()
+        TweenService:Create(Stroke, TweenInfo.new(0.22), {Transparency = 0}):Play()
+        TweenService:Create(TLabel, TweenInfo.new(0.22), {TextTransparency = 0}):Play()
+        TweenService:Create(BLabel, TweenInfo.new(0.22), {TextTransparency = 0}):Play()
 
-        task.wait(duration or 2.8)
+        task.wait(duration or 3.0)
         if Card and Card.Parent then
-            TweenService:Create(Card, TweenInfo.new(0.25), {BackgroundTransparency = 1}):Play()
-            TweenService:Create(Stroke, TweenInfo.new(0.25), {Transparency = 1}):Play()
-            TweenService:Create(TLabel, TweenInfo.new(0.25), {TextTransparency = 1}):Play()
-            TweenService:Create(BLabel, TweenInfo.new(0.25), {TextTransparency = 1}):Play()
-            task.wait(0.25)
+            TweenService:Create(Card, TweenInfo.new(0.22), {BackgroundTransparency = 1}):Play()
+            TweenService:Create(Stroke, TweenInfo.new(0.22), {Transparency = 1}):Play()
+            TweenService:Create(TLabel, TweenInfo.new(0.22), {TextTransparency = 1}):Play()
+            TweenService:Create(BLabel, TweenInfo.new(0.22), {TextTransparency = 1}):Play()
+            task.wait(0.22)
             pcall(function() Card:Destroy() end)
         end
     end)
@@ -496,8 +503,8 @@ table.insert(ThemeElements, {inst = ToggleStroke, prop = "Color"})
 
 -- Main Hub Container
 local MainFrame = Instance.new("CanvasGroup")
-MainFrame.Size = UDim2.new(0, 580, 0, 425)
-MainFrame.Position = UDim2.new(0.5, -290, 0.5, -212)
+MainFrame.Size = UDim2.new(0, 590, 0, 435)
+MainFrame.Position = UDim2.new(0.5, -295, 0.5, -217)
 MainFrame.BackgroundColor3 = ThemeColors.Background
 MainFrame.BorderSizePixel = 0
 MainFrame.GroupTransparency = 0
@@ -521,10 +528,10 @@ BrandDot.Parent = Topbar
 table.insert(ThemeElements, {inst = BrandDot, prop = "BackgroundColor3"})
 
 local Title = Instance.new("TextLabel")
-Title.Size = UDim2.new(0, 290, 1, 0)
+Title.Size = UDim2.new(0, 310, 1, 0)
 Title.Position = UDim2.new(0, 40, 0, 0)
 Title.BackgroundTransparency = 1
-Title.Text = "QUANTUM HUB UNIVERSAL SCRIPT"
+Title.Text = "QUANTUM HUB // v3.5 ULTIMATE"
 Title.TextColor3 = ThemeColors.TextWhite
 Title.Font = Enum.Font.GothamBold
 Title.TextSize = 15
@@ -597,7 +604,7 @@ AddStroke(BottomBar, Color3.fromRGB(32, 36, 52), 1)
 BottomBar.Parent = MainFrame
 
 local FPSLabel = Instance.new("TextLabel")
-FPSLabel.Size = UDim2.new(0, 100, 1, 0)
+FPSLabel.Size = UDim2.new(0, 95, 1, 0)
 FPSLabel.Position = UDim2.new(0, 14, 0, 0)
 FPSLabel.BackgroundTransparency = 1
 FPSLabel.Text = "FPS: 60"
@@ -608,8 +615,8 @@ FPSLabel.TextXAlignment = Enum.TextXAlignment.Left
 FPSLabel.Parent = BottomBar
 
 local PingLabel = Instance.new("TextLabel")
-PingLabel.Size = UDim2.new(0, 120, 1, 0)
-PingLabel.Position = UDim2.new(0, 110, 0, 0)
+PingLabel.Size = UDim2.new(0, 110, 1, 0)
+PingLabel.Position = UDim2.new(0, 105, 0, 0)
 PingLabel.BackgroundTransparency = 1
 PingLabel.Text = "Ping: --"
 PingLabel.TextColor3 = ThemeColors.TextGray
@@ -619,8 +626,8 @@ PingLabel.TextXAlignment = Enum.TextXAlignment.Left
 PingLabel.Parent = BottomBar
 
 local TargetStatusLabel = Instance.new("TextLabel")
-TargetStatusLabel.Size = UDim2.new(0, 150, 1, 0)
-TargetStatusLabel.Position = UDim2.new(0, 230, 0, 0)
+TargetStatusLabel.Size = UDim2.new(0, 165, 1, 0)
+TargetStatusLabel.Position = UDim2.new(0, 215, 0, 0)
 TargetStatusLabel.BackgroundTransparency = 1
 TargetStatusLabel.Text = "Locked: None"
 TargetStatusLabel.TextColor3 = ThemeColors.TextGray
@@ -630,10 +637,10 @@ TargetStatusLabel.TextXAlignment = Enum.TextXAlignment.Left
 TargetStatusLabel.Parent = BottomBar
 
 local EntitiesLabel = Instance.new("TextLabel")
-EntitiesLabel.Size = UDim2.new(0, 140, 1, 0)
-EntitiesLabel.Position = UDim2.new(1, -154, 0, 0)
+EntitiesLabel.Size = UDim2.new(0, 165, 1, 0)
+EntitiesLabel.Position = UDim2.new(1, -178, 0, 0)
 EntitiesLabel.BackgroundTransparency = 1
-EntitiesLabel.Text = "Tracked: 0"
+EntitiesLabel.Text = "Players: 0 | Bots: 0"
 EntitiesLabel.TextColor3 = Themes[QuantumConfig.Theme]
 EntitiesLabel.Font = Enum.Font.GothamSemibold
 EntitiesLabel.TextSize = 11
@@ -647,7 +654,7 @@ local currentTabName = ""
 local function CreateTab(name, order)
     local TabButton = Instance.new("TextButton")
     TabButton.LayoutOrder = order
-    TabButton.Size = UDim2.new(0, 102, 0, 28)
+    TabButton.Size = UDim2.new(0, 104, 0, 28)
     TabButton.BackgroundColor3 = ThemeColors.NavBG
     TabButton.Text = name
     TabButton.TextColor3 = ThemeColors.TextGray
@@ -704,7 +711,7 @@ local function CreateTab(name, order)
 end
 
 -----------------------------------
--- 5. MODERN CARD-BASED COMPONENTS
+-- 5. MODERN CARD-BASED COMPONENTS (WITH DETECTION WARNINGS)
 -----------------------------------
 local nextOrder = 0
 local function GetOrder()
@@ -726,7 +733,7 @@ local function CreateSectionHeader(parent, titleText)
     table.insert(ThemeElements, {inst = Header, prop = "TextColor3"})
 end
 
-local function CreateToggle(parent, name, configKey, callback)
+local function CreateToggle(parent, name, configKey, callback, warningTag)
     local Frame = Instance.new("TextButton")
     Frame.LayoutOrder = GetOrder()
     Frame.Size = UDim2.new(1, 0, 0, 42)
@@ -734,11 +741,12 @@ local function CreateToggle(parent, name, configKey, callback)
     Frame.Text = ""
     Frame.AutoButtonColor = false
     AddCorner(Frame, 10)
-    local FrameStroke = AddStroke(Frame, Color3.fromRGB(36, 40, 58), 1)
+    local defaultBorder = warningTag and Color3.fromRGB(70, 48, 28) or Color3.fromRGB(36, 40, 58)
+    local FrameStroke = AddStroke(Frame, defaultBorder, 1)
     Frame.Parent = parent
     
     local Label = Instance.new("TextLabel")
-    Label.Size = UDim2.new(1, -70, 1, 0)
+    Label.Size = UDim2.new(1, warningTag and -195 or -70, 1, 0)
     Label.Position = UDim2.new(0, 16, 0, 0)
     Label.BackgroundTransparency = 1
     Label.Text = name
@@ -747,12 +755,26 @@ local function CreateToggle(parent, name, configKey, callback)
     Label.TextSize = 13
     Label.TextXAlignment = Enum.TextXAlignment.Left
     Label.Parent = Frame
+
+    if warningTag then
+        local WarnBadge = Instance.new("TextLabel")
+        WarnBadge.Size = UDim2.new(0, 108, 0, 20)
+        WarnBadge.Position = UDim2.new(1, -168, 0.5, -10)
+        WarnBadge.BackgroundColor3 = Color3.fromRGB(48, 30, 20)
+        WarnBadge.Text = warningTag
+        WarnBadge.TextColor3 = ThemeColors.WarningOrange
+        WarnBadge.Font = Enum.Font.GothamBold
+        WarnBadge.TextSize = 10
+        AddCorner(WarnBadge, 6)
+        AddStroke(WarnBadge, ThemeColors.WarningOrange, 1)
+        WarnBadge.Parent = Frame
+    end
     
     local initState = QuantumConfig[configKey]
     local SwitchBG = Instance.new("Frame")
     SwitchBG.Size = UDim2.new(0, 38, 0, 20)
     SwitchBG.Position = UDim2.new(1, -52, 0.5, -10)
-    SwitchBG.BackgroundColor3 = initState and Themes[QuantumConfig.Theme] or ThemeColors.ControlBG
+    SwitchBG.BackgroundColor3 = initState and (warningTag and ThemeColors.WarningOrange or Themes[QuantumConfig.Theme]) or ThemeColors.ControlBG
     AddCorner(SwitchBG, 10)
     SwitchBG.Parent = Frame
     
@@ -763,36 +785,42 @@ local function CreateToggle(parent, name, configKey, callback)
     AddCorner(SwitchKnob, 7)
     SwitchKnob.Parent = SwitchBG
     
-    table.insert(ThemeElements, {
-        inst = SwitchBG, 
-        prop = "BackgroundColor3", 
-        condition = function() return QuantumConfig[configKey] end
-    })
+    if not warningTag then
+        table.insert(ThemeElements, {
+            inst = SwitchBG, 
+            prop = "BackgroundColor3", 
+            condition = function() return QuantumConfig[configKey] end
+        })
+    end
     
     local function SyncVisualState()
         local state = QuantumConfig[configKey]
+        local activeCol = warningTag and ThemeColors.WarningOrange or Themes[QuantumConfig.Theme]
         TweenService:Create(SwitchKnob, TweenInfo.new(0.22, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
             Position = state and UDim2.new(1, -17, 0.5, -7) or UDim2.new(0, 3, 0.5, -7),
             BackgroundColor3 = state and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(130, 136, 165)
         }):Play()
         TweenService:Create(SwitchBG, TweenInfo.new(0.22, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
-            BackgroundColor3 = state and Themes[QuantumConfig.Theme] or ThemeColors.ControlBG
+            BackgroundColor3 = state and activeCol or ThemeColors.ControlBG
         }):Play()
     end
     table.insert(UIControlRefreshers, SyncVisualState)
 
     TrackConnection(Frame.MouseEnter:Connect(function() 
         TweenService:Create(Frame, TweenInfo.new(0.18), {BackgroundColor3 = ThemeColors.CardHover}):Play() 
-        TweenService:Create(FrameStroke, TweenInfo.new(0.18), {Color = Themes[QuantumConfig.Theme]}):Play()
+        TweenService:Create(FrameStroke, TweenInfo.new(0.18), {Color = warningTag and ThemeColors.WarningOrange or Themes[QuantumConfig.Theme]}):Play()
     end))
     TrackConnection(Frame.MouseLeave:Connect(function() 
         TweenService:Create(Frame, TweenInfo.new(0.18), {BackgroundColor3 = ThemeColors.CardBG}):Play() 
-        TweenService:Create(FrameStroke, TweenInfo.new(0.18), {Color = Color3.fromRGB(36, 40, 58)}):Play()
+        TweenService:Create(FrameStroke, TweenInfo.new(0.18), {Color = defaultBorder}):Play()
     end))
     
     TrackConnection(Frame.MouseButton1Click:Connect(function()
         QuantumConfig[configKey] = not QuantumConfig[configKey]
         SyncVisualState()
+        if QuantumConfig[configKey] and warningTag then
+            Notify("⚠ Anti-Cheat Warning", name .. " is enabled. High detection risk in strict games!", 3.2, true)
+        end
         if configKey == "Fullbright" or configKey == "NoFog" then
             UpdateWorld()
         end
@@ -800,26 +828,17 @@ local function CreateToggle(parent, name, configKey, callback)
     end))
 end
 
-local function CreateSlider(parent, name, min, max, configKey, isFloat, callback)
+local function CreateSlider(parent, name, min, max, configKey, isFloat, callback, warnThreshold, warnText)
     local Frame = Instance.new("Frame")
     Frame.LayoutOrder = GetOrder()
-    Frame.Size = UDim2.new(1, 0, 0, 54)
+    Frame.Size = UDim2.new(1, 0, 0, 56)
     Frame.BackgroundColor3 = ThemeColors.CardBG
     AddCorner(Frame, 10)
     local FrameStroke = AddStroke(Frame, Color3.fromRGB(36, 40, 58), 1)
     Frame.Parent = parent
     
-    TrackConnection(Frame.MouseEnter:Connect(function() 
-        TweenService:Create(Frame, TweenInfo.new(0.18), {BackgroundColor3 = ThemeColors.CardHover}):Play() 
-        TweenService:Create(FrameStroke, TweenInfo.new(0.18), {Color = Themes[QuantumConfig.Theme]}):Play()
-    end))
-    TrackConnection(Frame.MouseLeave:Connect(function() 
-        TweenService:Create(Frame, TweenInfo.new(0.18), {BackgroundColor3 = ThemeColors.CardBG}):Play() 
-        TweenService:Create(FrameStroke, TweenInfo.new(0.18), {Color = Color3.fromRGB(36, 40, 58)}):Play()
-    end))
-    
     local Label = Instance.new("TextLabel")
-    Label.Size = UDim2.new(1, -80, 0, 20)
+    Label.Size = UDim2.new(1, -210, 0, 20)
     Label.Position = UDim2.new(0, 16, 0, 8)
     Label.BackgroundTransparency = 1
     Label.Text = name
@@ -828,12 +847,28 @@ local function CreateSlider(parent, name, min, max, configKey, isFloat, callback
     Label.TextSize = 13
     Label.TextXAlignment = Enum.TextXAlignment.Left
     Label.Parent = Frame
+
+    local RiskBadge = nil
+    if warnThreshold then
+        RiskBadge = Instance.new("TextLabel")
+        RiskBadge.Size = UDim2.new(0, 155, 0, 18)
+        RiskBadge.Position = UDim2.new(1, -225, 0, 9)
+        RiskBadge.BackgroundColor3 = Color3.fromRGB(55, 20, 24)
+        RiskBadge.Text = warnText or ("⚠ DETECTABLE >" .. tostring(warnThreshold) .. "%")
+        RiskBadge.TextColor3 = ThemeColors.DangerRed
+        RiskBadge.Font = Enum.Font.GothamBold
+        RiskBadge.TextSize = 10
+        AddCorner(RiskBadge, 5)
+        AddStroke(RiskBadge, ThemeColors.DangerRed, 1)
+        RiskBadge.Visible = (QuantumConfig[configKey] > warnThreshold)
+        RiskBadge.Parent = Frame
+    end
     
     local ValueLabel = Instance.new("TextLabel")
-    ValueLabel.Size = UDim2.new(0, 60, 0, 20)
-    ValueLabel.Position = UDim2.new(1, -76, 0, 8)
+    ValueLabel.Size = UDim2.new(0, 55, 0, 20)
+    ValueLabel.Position = UDim2.new(1, -70, 0, 8)
     ValueLabel.BackgroundTransparency = 1
-    ValueLabel.Text = tostring(QuantumConfig[configKey])
+    ValueLabel.Text = tostring(QuantumConfig[configKey]) .. (warnThreshold == 70 and "%" or "")
     ValueLabel.TextColor3 = Themes[QuantumConfig.Theme]
     ValueLabel.Font = Enum.Font.GothamBold
     ValueLabel.TextSize = 13
@@ -842,7 +877,7 @@ local function CreateSlider(parent, name, min, max, configKey, isFloat, callback
     
     local SliderBG = Instance.new("TextButton")
     SliderBG.Size = UDim2.new(1, -32, 0, 8)
-    SliderBG.Position = UDim2.new(0, 16, 0, 35)
+    SliderBG.Position = UDim2.new(0, 16, 0, 36)
     SliderBG.BackgroundColor3 = ThemeColors.ControlBG
     SliderBG.Text = ""
     SliderBG.AutoButtonColor = false
@@ -856,15 +891,62 @@ local function CreateSlider(parent, name, min, max, configKey, isFloat, callback
     AddCorner(Fill, 4)
     Fill.Parent = SliderBG
     
-    table.insert(ThemeElements, {inst = ValueLabel, prop = "TextColor3"})
-    table.insert(ThemeElements, {inst = Fill, prop = "BackgroundColor3"})
+    table.insert(ThemeElements, {
+        inst = ValueLabel, 
+        prop = "TextColor3",
+        condition = function() return not (warnThreshold and QuantumConfig[configKey] > warnThreshold) end
+    })
+    table.insert(ThemeElements, {
+        inst = Fill, 
+        prop = "BackgroundColor3",
+        condition = function() return not (warnThreshold and QuantumConfig[configKey] > warnThreshold) end
+    })
     
-    local function SyncSliderState()
-        local r = math.clamp((QuantumConfig[configKey] - min) / (max - min), 0, 1)
-        Fill.Size = UDim2.new(r, 0, 1, 0)
-        ValueLabel.Text = tostring(QuantumConfig[configKey])
+    local warnedAlready = (warnThreshold and QuantumConfig[configKey] > warnThreshold) or false
+
+    local function RefreshWarningVisuals(val)
+        local isOver = (warnThreshold ~= nil and val > warnThreshold)
+        if RiskBadge then
+            RiskBadge.Visible = isOver
+        end
+        if isOver then
+            Fill.BackgroundColor3 = ThemeColors.DangerRed
+            ValueLabel.TextColor3 = ThemeColors.DangerRed
+            FrameStroke.Color = ThemeColors.DangerRed
+            if not warnedAlready then
+                warnedAlready = true
+                Notify("⚠ High Detection Risk", name .. " is over " .. tostring(warnThreshold) .. "%! Hard-locking can trigger anti-cheat.", 3.0, true)
+            end
+        else
+            warnedAlready = false
+            Fill.BackgroundColor3 = Themes[QuantumConfig.Theme]
+            ValueLabel.TextColor3 = Themes[QuantumConfig.Theme]
+            FrameStroke.Color = Color3.fromRGB(36, 40, 58)
+        end
     end
+
+    local function SyncSliderState()
+        local val = QuantumConfig[configKey]
+        local r = math.clamp((val - min) / (max - min), 0, 1)
+        Fill.Size = UDim2.new(r, 0, 1, 0)
+        ValueLabel.Text = tostring(val) .. (warnThreshold == 70 and "%" or "")
+        RefreshWarningVisuals(val)
+    end
+    SyncSliderState()
     table.insert(UIControlRefreshers, SyncSliderState)
+
+    TrackConnection(Frame.MouseEnter:Connect(function() 
+        TweenService:Create(Frame, TweenInfo.new(0.18), {BackgroundColor3 = ThemeColors.CardHover}):Play() 
+        if not (warnThreshold and QuantumConfig[configKey] > warnThreshold) then
+            TweenService:Create(FrameStroke, TweenInfo.new(0.18), {Color = Themes[QuantumConfig.Theme]}):Play()
+        end
+    end))
+    TrackConnection(Frame.MouseLeave:Connect(function() 
+        TweenService:Create(Frame, TweenInfo.new(0.18), {BackgroundColor3 = ThemeColors.CardBG}):Play() 
+        if not (warnThreshold and QuantumConfig[configKey] > warnThreshold) then
+            TweenService:Create(FrameStroke, TweenInfo.new(0.18), {Color = Color3.fromRGB(36, 40, 58)}):Play()
+        end
+    end))
 
     local draggingSlider = false
     local function UpdateSliderFromInput(inputPosX)
@@ -880,7 +962,8 @@ local function CreateSlider(parent, name, min, max, configKey, isFloat, callback
         end
         
         QuantumConfig[configKey] = value
-        ValueLabel.Text = tostring(value)
+        ValueLabel.Text = tostring(value) .. (warnThreshold == 70 and "%" or "")
+        RefreshWarningVisuals(value)
         
         if configKey == "MoonSize" or configKey == "Brightness" then 
             UpdateWorld() 
@@ -1196,13 +1279,13 @@ local function ToggleMenu()
         MainFrame.Active = true
         TweenService:Create(MainFrame, TweenInfo.new(0.25, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
             GroupTransparency = 0,
-            Size = UDim2.new(0, 580, 0, 425)
+            Size = UDim2.new(0, 590, 0, 435)
         }):Play()
     else
         MainFrame.Active = false
         TweenService:Create(MainFrame, TweenInfo.new(0.2, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
             GroupTransparency = 1,
-            Size = UDim2.new(0, 550, 0, 400)
+            Size = UDim2.new(0, 560, 0, 410)
         }):Play()
         task.delay(0.2, function()
             if not QuantumConfig.MenuOpen then
@@ -1284,7 +1367,7 @@ TrackConnection(UserInputService.InputChanged:Connect(function(input)
 end))
 
 -----------------------------------
--- 7. POPULATE 5 TABS
+-- 7. POPULATE 5 TABS (WITH WARNING BADGES)
 -----------------------------------
 local CombatTab = CreateTab("Combat", 1)
 local VisualsTab = CreateTab("Visuals", 2)
@@ -1301,16 +1384,16 @@ Tabs["Combat"].Frame.Visible = true
 CreateSectionHeader(CombatTab, "Aimbot & Silent Aim")
 CreateToggle(CombatTab, "Enable Camera Aimbot", "Aimbot")
 CreateKeybindPicker(CombatTab, "Aimbot Hold Keybind")
-CreateToggle(CombatTab, "Universal Silent Aim (Hook)", "SilentAim")
-CreateCycle(CombatTab, "Silent Aim Target Part", {"Head", "HumanoidRootPart", "Random", "Closest"}, "SilentAimPart", false)
+CreateSlider(CombatTab, "Aimbot Lock Speed", 1, 100, "Smoothness", false, nil, 70, "⚠ DETECTABLE >70%")
 CreateCycle(CombatTab, "Camera Aimbot Part", {"Head", "HumanoidRootPart"}, "TargetPart", false)
-CreateSlider(CombatTab, "Aimbot Lock Speed (1=Smooth, 100=Instant)", 1, 100, "Smoothness", false)
+CreateToggle(CombatTab, "Universal Silent Aim", "SilentAim", nil, "⚠ DETECTABLE")
+CreateCycle(CombatTab, "Silent Aim Target Part", {"Head", "HumanoidRootPart", "Random", "Closest"}, "SilentAimPart", false)
 CreateSlider(CombatTab, "Silent Aim Hit Chance (%)", 1, 100, "HitChance", false)
 
 CreateSectionHeader(CombatTab, "Targeting, FOV & Prediction")
 CreateToggle(CombatTab, "Show Target Lock Snapline & Ring", "ShowTargetLine")
 CreateToggle(CombatTab, "Wall Check (Visible Only)", "WallCheck")
-CreateToggle(CombatTab, "Prioritize Enemies Behind Walls", "PrioritizeBehindWalls")
+CreateToggle(CombatTab, "Prioritize Enemies Behind Walls", "PrioritizeBehindWalls", nil, "⚠ BLATANT")
 CreateToggle(CombatTab, "Target Velocity Prediction", "Prediction")
 CreateSlider(CombatTab, "Prediction Factor (Secs)", 0, 0.5, "PredictionAmount", true)
 CreateToggle(CombatTab, "Show FOV Circle", "ShowFOV")
@@ -1319,15 +1402,15 @@ CreateSlider(CombatTab, "FOV Radius (px)", 30, 800, "FOVRadius", false)
 
 CreateSectionHeader(CombatTab, "TriggerBot (Auto Shoot) & Hitbox")
 CreateToggle(CombatTab, "Enable TriggerBot (Crosshair Auto Shoot)", "TriggerBot")
-CreateToggle(CombatTab, "Auto-Shoot on Silent Aim Lock (FOV)", "TriggerWithSilentAim")
+CreateToggle(CombatTab, "Auto-Shoot on Silent Aim Lock", "TriggerWithSilentAim", nil, "⚠ DETECTABLE")
 CreateSlider(CombatTab, "TriggerBot Fire Delay (Secs)", 0, 1, "TriggerDelay", true)
-CreateToggle(CombatTab, "Universal Hitbox Expander (Players & Bots)", "HitboxExpander")
+CreateToggle(CombatTab, "Universal Hitbox Expander", "HitboxExpander", nil, "⚠ DETECTABLE")
 CreateCycle(CombatTab, "Hitbox Target Part", {"HumanoidRootPart", "Head", "Torso"}, "HitboxPart", false)
-CreateSlider(CombatTab, "Hitbox Size (Studs)", 2, 50, "HitboxSize", false)
+CreateSlider(CombatTab, "Hitbox Size (Studs)", 2, 50, "HitboxSize", false, nil, 15, "⚠ BLATANT >15")
 CreateSlider(CombatTab, "Hitbox Transparency", 0.1, 1, "HitboxTransparency", true)
 
 -- 2. Visuals Elements
-CreateSectionHeader(VisualsTab, "Player & Bot ESP")
+CreateSectionHeader(VisualsTab, "Player & Bot ESP (Undetected Drawing)")
 CreateToggle(VisualsTab, "2D Box ESP", "BoxESP")
 CreateToggle(VisualsTab, "Name & Distance ESP", "NameESP")
 CreateToggle(VisualsTab, "Side Health Bar ESP", "HealthESP")
@@ -1342,17 +1425,17 @@ CreateToggle(VisualsTab, "Rainbow Chroma ESP (Auto-Cycle)", "RainbowESP")
 CreateSlider(VisualsTab, "Max Render Distance (Studs)", 100, 5000, "MaxDistance", false)
 CreateHueSpectrum(VisualsTab, "Master ESP Color", "ESP_Color")
 
--- 3. Movement & LocalPlayer Elements
-CreateSectionHeader(MovementTab, "Speed & Jump Overrides")
-CreateToggle(MovementTab, "Enable Custom WalkSpeed", "CustomWalkSpeed")
-CreateSlider(MovementTab, "WalkSpeed Value", 16, 250, "WalkSpeed", false)
-CreateToggle(MovementTab, "Enable Custom JumpPower", "CustomJumpPower")
-CreateSlider(MovementTab, "JumpPower Value", 50, 300, "JumpPower", false)
-CreateToggle(MovementTab, "Infinite Jump (Spacebar)", "InfiniteJump")
+-- 3. Movement & LocalPlayer Elements (Marked with Anti-Cheat Warnings)
+CreateSectionHeader(MovementTab, "Speed & Jump Overrides (High Detection Risk)")
+CreateToggle(MovementTab, "Custom WalkSpeed", "CustomWalkSpeed", nil, "⚠ DETECTABLE")
+CreateSlider(MovementTab, "WalkSpeed Value", 16, 250, "WalkSpeed", false, nil, 35, "⚠ HIGH RISK >35")
+CreateToggle(MovementTab, "Custom JumpPower", "CustomJumpPower", nil, "⚠ DETECTABLE")
+CreateSlider(MovementTab, "JumpPower Value", 50, 300, "JumpPower", false, nil, 85, "⚠ HIGH RISK >85")
+CreateToggle(MovementTab, "Infinite Jump (Spacebar)", "InfiniteJump", nil, "⚠ DETECTABLE")
 
 CreateSectionHeader(MovementTab, "Flight, Physics & Camera")
-CreateToggle(MovementTab, "Enable CFrame Flight (WASD + Space/Shift)", "Fly")
-CreateSlider(MovementTab, "Flight Speed", 15, 250, "FlySpeed", false)
+CreateToggle(MovementTab, "CFrame Flight (WASD + Space/Shift)", "Fly", nil, "⚠ DETECTABLE")
+CreateSlider(MovementTab, "Flight Speed", 15, 250, "FlySpeed", false, nil, 80, "⚠ HIGH RISK >80")
 CreateToggle(MovementTab, "Noclip (Walk Through Walls)", "Noclip", function(enabled)
     if not enabled then
         for part, canCol in pairs(LocalPlayerNoclipCache) do
@@ -1362,8 +1445,8 @@ CreateToggle(MovementTab, "Noclip (Walk Through Walls)", "Noclip", function(enab
         end
         table.clear(LocalPlayerNoclipCache)
     end
-end)
-CreateToggle(MovementTab, "SpinBot (Anti-Aim Rotation)", "SpinBot")
+end, "⚠ DETECTABLE")
+CreateToggle(MovementTab, "SpinBot (Anti-Aim Rotation)", "SpinBot", nil, "⚠ BLATANT")
 CreateSlider(MovementTab, "SpinBot Speed", 5, 100, "SpinSpeed", false)
 CreateToggle(MovementTab, "Override Camera FOV", "CustomCameraFOV")
 CreateSlider(MovementTab, "Camera FOV Value", 40, 120, "CameraFOV", false)
@@ -1378,14 +1461,15 @@ CreateSlider(WorldTab, "World Brightness", 0, 10, "Brightness", true)
 CreateToggle(WorldTab, "Quantum Character Aura", "QuantumAura")
 
 -- 5. Settings Elements
-CreateSectionHeader(SettingsTab, "Universal Entity & Bot Scanner")
-CreateToggle(SettingsTab, "Target & Render NPCs / Bots", "IncludeBots")
-CreateToggle(SettingsTab, "Universal Team Check", "TeamCheck")
+CreateSectionHeader(SettingsTab, "Universal Deep-Workspace AI & Bot Scanner")
+CreateToggle(SettingsTab, "Target & Render All Game Bots / AI / NPCs", "IncludeBots")
+CreateToggle(SettingsTab, "Universal Team Check (Players & AI)", "TeamCheck")
+CreateToggle(SettingsTab, "Ignore Spawn ForceField Targets", "IgnoreForceField")
 
 CreateSectionHeader(SettingsTab, "Configuration & Server Utilities")
 CreateCycle(SettingsTab, "Interface Accent Theme", ThemeOptionsList, "Theme", true)
 
-local ConfigFileName = "QuantumHub_Universal_v3.json"
+local ConfigFileName = "QuantumHub_Universal_v35.json"
 CreateActionButton(SettingsTab, "Save Current Configuration", "SAVE", function()
     if type(writefile) == "function" then
         local exportData = {}
@@ -1397,9 +1481,9 @@ CreateActionButton(SettingsTab, "Save Current Configuration", "SAVE", function()
         pcall(function()
             writefile(ConfigFileName, HttpService:JSONEncode(exportData))
         end)
-        Notify("Config Saved", "Saved settings to " .. ConfigFileName, 2.5)
+        Notify("Config Saved", "Saved settings to " .. ConfigFileName, 2.5, false)
     else
-        Notify("Executor Notice", "writefile() is not supported on this executor.", 2.5)
+        Notify("Executor Notice", "writefile() is not supported on this executor.", 2.5, true)
     end
 end)
 
@@ -1419,22 +1503,22 @@ CreateActionButton(SettingsTab, "Load Saved Configuration", "LOAD", function()
             end
             UpdateTheme()
             UpdateWorld()
-            Notify("Config Loaded", "Restored settings from " .. ConfigFileName, 2.5)
+            Notify("Config Loaded", "Restored settings from " .. ConfigFileName, 2.5, false)
         end
     else
-        Notify("Config Not Found", "Save a configuration first before loading.", 2.5)
+        Notify("Config Not Found", "Save a configuration first before loading.", 2.5, true)
     end
 end)
 
 CreateActionButton(SettingsTab, "Rejoin Current Server", "REJOIN", function()
-    Notify("Rejoining", "Teleporting back to current server...", 2)
+    Notify("Rejoining", "Teleporting back to current server...", 2, false)
     pcall(function()
         TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, LocalPlayer)
     end)
 end)
 
 CreateActionButton(SettingsTab, "Server Hop (Find New Server)", "HOP", function()
-    Notify("Server Hop", "Searching for a new server...", 2.5)
+    Notify("Server Hop", "Searching for a new server...", 2.5, false)
     task.spawn(function()
         local ok, res = pcall(function()
             return HttpService:JSONDecode(game:HttpGet("https://games.roblox.com/v1/games/" .. game.PlaceId .. "/servers/Public?sortOrder=Asc&limit=100"))
@@ -1452,7 +1536,7 @@ CreateActionButton(SettingsTab, "Server Hop (Find New Server)", "HOP", function(
 end)
 
 -----------------------------------
--- 8. UNIFIED PLAYER & BOT ENGINE
+-- 8. DEEP-WORKSPACE UNIVERSAL AI, BOT & PLAYER ENGINE
 -----------------------------------
 local function GetCharacterHumanoid(char)
     if not char then return nil end
@@ -1461,29 +1545,126 @@ end
 
 local function GetCharacterRoot(char)
     if not char then return nil end
-    return char:FindFirstChild("HumanoidRootPart")
+    local root = char:FindFirstChild("HumanoidRootPart")
         or char:FindFirstChild("Torso")
         or char:FindFirstChild("UpperTorso")
+        or char:FindFirstChild("LowerTorso")
+        or char:FindFirstChild("RootPart")
+        or char:FindFirstChild("Root")
+        or char:FindFirstChild("Hitbox")
+        or char:FindFirstChild("Body")
         or char.PrimaryPart
         or char:FindFirstChild("Head")
+
+    if root and root:IsA("BasePart") then
+        return root
+    end
+    return char:FindFirstChildWhichIsA("BasePart")
 end
 
 local function GetCharacterHead(char)
     if not char then return nil end
-    return char:FindFirstChild("Head") or GetCharacterRoot(char)
+    local head = char:FindFirstChild("Head")
+        or char:FindFirstChild("HeadHitbox")
+        or char:FindFirstChild("FakeHead")
+        or char:FindFirstChild("Crit")
+    if head and head:IsA("BasePart") then
+        return head
+    end
+    return GetCharacterRoot(char)
+end
+
+local function GetEntityHealthAndMax(char)
+    if not char then return 0, 0 end
+    local hum = GetCharacterHumanoid(char)
+    if hum then
+        if hum.MaxHealth > 0 then
+            return hum.Health, hum.MaxHealth
+        else
+            return 100, 100
+        end
+    end
+
+    local attrHp = char:GetAttribute("Health") or char:GetAttribute("HP") or char:GetAttribute("CurrentHealth")
+    local attrMax = char:GetAttribute("MaxHealth") or char:GetAttribute("MaxHP") or 100
+    if type(attrHp) == "number" then
+        return attrHp, (type(attrMax) == "number" and attrMax > 0) and attrMax or 100
+    end
+
+    local hpObj = char:FindFirstChild("Health") or char:FindFirstChild("HP")
+    if hpObj and (hpObj:IsA("NumberValue") or hpObj:IsA("IntValue")) then
+        local maxObj = char:FindFirstChild("MaxHealth") or char:FindFirstChild("MaxHP")
+        local maxVal = (maxObj and (maxObj:IsA("NumberValue") or maxObj:IsA("IntValue"))) and maxObj.Value or 100
+        return hpObj.Value, math.max(maxVal, 1)
+    end
+
+    return 100, 100
+end
+
+local IgnoredAncestorNames = {
+    ["corpses"] = true, ["ragdolls"] = true, ["dead"] = true, ["debris"] = true,
+    ["viewmodel"] = true, ["camera"] = true, ["ignore"] = true, ["effects"] = true,
+    ["weapons"] = true, ["dropped"] = true, ["items"] = true, ["shop"] = true
+}
+
+local function HasValidAncestorPath(model)
+    local curr = model.Parent
+    while curr and curr ~= workspace do
+        if curr == LocalPlayer.Character or curr == Camera then
+            return false
+        end
+        local lowerName = string.lower(curr.Name)
+        if IgnoredAncestorNames[lowerName] then
+            return false
+        end
+        if curr:IsA("Model") and curr:FindFirstChildOfClass("Humanoid") then
+            return false
+        end
+        curr = curr.Parent
+    end
+    return curr == workspace
+end
+
+local function IsValidBotModel(model)
+    if not model or not model:IsA("Model") or model == LocalPlayer.Character then return false end
+    if Players:GetPlayerFromCharacter(model) then return false end
+    if not HasValidAncestorPath(model) then return false end
+
+    local hum = GetCharacterHumanoid(model)
+    local animCtrl = model:FindFirstChildOfClass("AnimationController")
+    local hasHealthData = (model:GetAttribute("Health") ~= nil) or (model:GetAttribute("HP") ~= nil) or (model:FindFirstChild("Health") ~= nil)
+    local hasStandardRig = (model:FindFirstChild("Head") ~= nil) and (
+        model:FindFirstChild("HumanoidRootPart") ~= nil or
+        model:FindFirstChild("Torso") ~= nil or
+        model:FindFirstChild("UpperTorso") ~= nil
+    )
+
+    if not (hum or animCtrl or hasHealthData or hasStandardRig) then
+        return false
+    end
+
+    return GetCharacterRoot(model) ~= nil
 end
 
 local function IsAliveAndValid(char)
     if not char or not char.Parent or char == LocalPlayer.Character then return false end
+    if not workspace:IsAncestorOf(char) then return false end
+    if QuantumConfig.IgnoreForceField and char:FindFirstChildOfClass("ForceField") then
+        return false
+    end
+
     local root = GetCharacterRoot(char)
     local head = GetCharacterHead(char)
     if not root or not head then return false end
     
     local hum = GetCharacterHumanoid(char)
     if hum then
-        return hum.Health > 0
+        if hum:GetState() == Enum.HumanoidStateType.Dead then return false end
+        return hum.Health > 0 or hum.MaxHealth == 0
     end
-    return char:FindFirstChild("Head") ~= nil and (char:FindFirstChild("Torso") ~= nil or char:FindFirstChild("UpperTorso") ~= nil or char:FindFirstChild("HumanoidRootPart") ~= nil)
+
+    local hp, _ = GetEntityHealthAndMax(char)
+    return hp > 0
 end
 
 local function CheckTeam(entityData)
@@ -1497,14 +1678,26 @@ local function CheckTeam(entityData)
 
     local model = entityData.Model
     if model and LocalPlayer.Team ~= nil then
-        local teamVal = model:FindFirstChild("Team") or model:FindFirstChild("TeamColor")
+        local myTeamName = string.lower(LocalPlayer.Team.Name)
+
+        local teamVal = model:FindFirstChild("Team") or model:FindFirstChild("TeamColor") or model:FindFirstChild("Faction")
         if teamVal and teamVal:IsA("ValueBase") then
-            if teamVal.Value == LocalPlayer.Team or teamVal.Value == LocalPlayer.TeamColor then
+            if teamVal.Value == LocalPlayer.Team or teamVal.Value == LocalPlayer.TeamColor or tostring(teamVal.Value):lower() == myTeamName then
                 return false
             end
         end
-        if model:GetAttribute("Team") and LocalPlayer.Team and model:GetAttribute("Team") == LocalPlayer.Team.Name then
+
+        local attrTeam = model:GetAttribute("Team") or model:GetAttribute("TeamColor") or model:GetAttribute("Faction")
+        if attrTeam and (tostring(attrTeam):lower() == myTeamName or attrTeam == LocalPlayer.TeamColor) then
             return false
+        end
+
+        local parentFolder = model.Parent
+        if parentFolder and parentFolder ~= workspace then
+            local pName = string.lower(parentFolder.Name)
+            if pName == myTeamName or pName == string.lower(LocalPlayer.TeamColor.Name) then
+                return false
+            end
         end
     end
 
@@ -1527,7 +1720,54 @@ local function IsVisible(targetPart, targetChar)
     return result == nil or (targetChar and targetChar:IsAncestorOf(result.Instance))
 end
 
--- HITBOX EXPANDER (Players & Bots)
+local function EvaluateInstanceForBot(inst)
+    if not inst then return end
+    local candidateModel = nil
+    if inst:IsA("Humanoid") or inst:IsA("AnimationController") then
+        candidateModel = inst.Parent
+    elseif inst:IsA("BasePart") and (inst.Name == "HumanoidRootPart" or inst.Name == "Head") then
+        candidateModel = inst.Parent
+    elseif inst:IsA("Model") then
+        candidateModel = inst
+    end
+
+    if candidateModel and candidateModel:IsA("Model") and not DiscoveredBotModels[candidateModel] then
+        if IsValidBotModel(candidateModel) then
+            DiscoveredBotModels[candidateModel] = true
+        end
+    end
+end
+
+TrackConnection(workspace.DescendantAdded:Connect(function(desc)
+    if IsUnloaded or not QuantumConfig.IncludeBots then return end
+    if desc:IsA("Humanoid") or desc:IsA("AnimationController") or (desc:IsA("BasePart") and (desc.Name == "HumanoidRootPart" or desc.Name == "Head")) then
+        task.defer(function()
+            pcall(EvaluateInstanceForBot, desc)
+        end)
+    end
+end))
+
+task.spawn(function()
+    while not IsUnloaded do
+        if QuantumConfig.IncludeBots then
+            pcall(function()
+                local descendants = workspace:GetDescendants()
+                for i = 1, #descendants do
+                    if IsUnloaded or not QuantumConfig.IncludeBots then break end
+                    local inst = descendants[i]
+                    if inst:IsA("Humanoid") or inst:IsA("AnimationController") or (inst:IsA("BasePart") and inst.Name == "HumanoidRootPart") then
+                        EvaluateInstanceForBot(inst)
+                    end
+                    if i % 300 == 0 then
+                        task.wait()
+                    end
+                end
+            end)
+        end
+        task.wait(2.5)
+    end
+end)
+
 local HitboxTargetNames = {"HumanoidRootPart", "Head", "Torso", "UpperTorso"}
 
 local function RestoreCharacterHitboxes(char)
@@ -1602,7 +1842,6 @@ local function UpdateCharacterHitbox(char, shouldExpand, activeColor)
     end
 end
 
--- SKELETON ESP DEFINITIONS (R15 & R6)
 local R15Skeleton = {
     {"Head", "UpperTorso"},
     {"UpperTorso", "LowerTorso"},
@@ -1751,16 +1990,16 @@ local function RemoveESPData(model)
     end
 end
 
--- THROTTLED UNIFIED ENTITY SCANNER (Finds Players & Bots without frame lag)
-local CommonBotContainers = {"Players", "Characters", "Bots", "NPCs", "Enemies", "Mobs", "Zombies", "AI", "Dummies", "Targets"}
-
 local function RefreshActiveEntities()
     local seenModels = {}
+    local playerCount = 0
+    local botCount = 0
 
     for _, player in ipairs(Players:GetPlayers()) do
         if player ~= LocalPlayer and player.Character and IsAliveAndValid(player.Character) then
             local char = player.Character
             seenModels[char] = true
+            playerCount = playerCount + 1
             ActiveEntities[char] = {
                 Model = char,
                 Player = player,
@@ -1771,63 +2010,27 @@ local function RefreshActiveEntities()
     end
 
     if QuantumConfig.IncludeBots then
-        local containersToScan = {workspace}
-        for _, folderName in ipairs(CommonBotContainers) do
-            local folder = workspace:FindFirstChild(folderName)
-            if folder then
-                table.insert(containersToScan, folder)
-            end
-        end
-
-        for _, container in ipairs(containersToScan) do
-            for _, child in ipairs(container:GetChildren()) do
-                if child:IsA("Model") and not seenModels[child] and child ~= LocalPlayer.Character then
-                    local ownerPlayer = Players:GetPlayerFromCharacter(child)
-                    if not ownerPlayer and IsAliveAndValid(child) then
-                        seenModels[child] = true
-                        ActiveEntities[child] = {
-                            Model = child,
-                            Player = nil,
-                            IsBot = true,
-                            Name = child.Name
-                        }
-                    elseif not IsAliveAndValid(child) then
-                        for _, subChild in ipairs(child:GetChildren()) do
-                            if subChild:IsA("Model") and not seenModels[subChild] and subChild ~= LocalPlayer.Character then
-                                local subOwner = Players:GetPlayerFromCharacter(subChild)
-                                if IsAliveAndValid(subChild) then
-                                    seenModels[subChild] = true
-                                    ActiveEntities[subChild] = {
-                                        Model = subChild,
-                                        Player = subOwner,
-                                        IsBot = (subOwner == nil),
-                                        Name = subOwner and subOwner.Name or subChild.Name
-                                    }
-                                end
-                            end
-                        end
-                    end
-                elseif child:IsA("Folder") and container ~= workspace then
-                    for _, subChild in ipairs(child:GetChildren()) do
-                        if subChild:IsA("Model") and not seenModels[subChild] and subChild ~= LocalPlayer.Character then
-                            local subOwner = Players:GetPlayerFromCharacter(subChild)
-                            if IsAliveAndValid(subChild) then
-                                seenModels[subChild] = true
-                                ActiveEntities[subChild] = {
-                                    Model = subChild,
-                                    Player = subOwner,
-                                    IsBot = (subOwner == nil),
-                                    Name = subOwner and subOwner.Name or subChild.Name
-                                }
-                            end
-                        end
-                    end
+        for botModel, _ in pairs(DiscoveredBotModels) do
+            if not botModel or not botModel.Parent then
+                DiscoveredBotModels[botModel] = nil
+            elseif not seenModels[botModel] and botModel ~= LocalPlayer.Character then
+                local ownerPlayer = Players:GetPlayerFromCharacter(botModel)
+                if not ownerPlayer and IsAliveAndValid(botModel) then
+                    seenModels[botModel] = true
+                    botCount = botCount + 1
+                    local hum = GetCharacterHumanoid(botModel)
+                    local displayName = (hum and hum.DisplayName ~= "" and hum.DisplayName) or botModel.Name
+                    ActiveEntities[botModel] = {
+                        Model = botModel,
+                        Player = nil,
+                        IsBot = true,
+                        Name = displayName
+                    }
                 end
             end
         end
     end
 
-    local count = 0
     for model, _ in pairs(ActiveEntities) do
         if not seenModels[model] or not IsAliveAndValid(model) then
             RestoreCharacterHitboxes(model)
@@ -1835,18 +2038,16 @@ local function RefreshActiveEntities()
             if hl then hl.Enabled = false end
             RemoveESPData(model)
             ActiveEntities[model] = nil
-        else
-            count = count + 1
         end
     end
 
-    EntitiesLabel.Text = "Tracked: " .. tostring(count)
+    EntitiesLabel.Text = string.format("Players: %d | Bots: %d", playerCount, botCount)
 end
 
 task.spawn(function()
     while not IsUnloaded do
         pcall(RefreshActiveEntities)
-        task.wait(0.35)
+        task.wait(0.25)
     end
 end)
 
@@ -1915,7 +2116,6 @@ local function IsAimbotKeyDown()
     return false
 end
 
--- MULTI-METHOD TRIGGERBOT RAYCASTER & FIRING ENGINE
 local function GetTriggerBotTarget(mousePos)
     if QuantumConfig.TriggerWithSilentAim and QuantumConfig.SilentAim and CachedBestTarget and IsAliveAndValid(CachedBestTarget) then
         local ent = ActiveEntities[CachedBestTarget]
@@ -2020,7 +2220,6 @@ local function ExecuteTriggerShot(mousePos)
     end)
 end
 
--- INFINITE JUMP & NOCLIP HANDLERS
 TrackConnection(UserInputService.JumpRequest:Connect(function()
     if not IsUnloaded and QuantumConfig.InfiniteJump then
         local char = LocalPlayer.Character
@@ -2084,7 +2283,6 @@ TrackConnection(RunService.RenderStepped:Connect(function()
             FOVCircle.Visible = false
         end
 
-        -- LocalPlayer Movement & Camera Overrides
         if QuantumConfig.CustomCameraFOV then
             Camera.FieldOfView = QuantumConfig.CameraFOV
         end
@@ -2125,7 +2323,6 @@ TrackConnection(RunService.RenderStepped:Connect(function()
             end
         end
 
-        -- Determine Master or Rainbow ESP Color
         local activeESPColor = QuantumConfig.RainbowESP
             and Color3.fromHSV((currentTime * 0.22) % 1, 0.9, 1)
             or (QuantumConfig.ESP_Color or Color3.fromRGB(255, 45, 85))
@@ -2137,7 +2334,6 @@ TrackConnection(RunService.RenderStepped:Connect(function()
             tracerStartPos = mousePos
         end
 
-        -- Single-pass ESP, Hitbox, and Best-Target evaluation across all Players & Bots
         local closestTarget = nil
         local shortestDistance = QuantumConfig.FOVRadius
         local closestBehindWall = nil
@@ -2151,10 +2347,8 @@ TrackConnection(RunService.RenderStepped:Connect(function()
                 local head = GetCharacterHead(model)
 
                 if hrp and head then
-                    -- 1. Hitbox Expander
                     UpdateCharacterHitbox(model, QuantumConfig.HitboxExpander, activeESPColor)
 
-                    -- 2. Chams ESP
                     if QuantumConfig.ChamsESP then
                         local hl = model:FindFirstChild("QuantumChams")
                         if not hl then 
@@ -2173,7 +2367,6 @@ TrackConnection(RunService.RenderStepped:Connect(function()
                         if hl then hl.Enabled = false end
                     end
 
-                    -- 3. Evaluate Closest Target for Aimbot & Silent Aim
                     local aimPart = model:FindFirstChild(QuantumConfig.TargetPart) or head or hrp
                     local aimScreenPos, aimOnScreen = Camera:WorldToViewportPoint(aimPart.Position)
                     if aimOnScreen then
@@ -2199,7 +2392,6 @@ TrackConnection(RunService.RenderStepped:Connect(function()
                         end
                     end
 
-                    -- 4. 2D ESP Rendering
                     local vector, onScreen = Camera:WorldToViewportPoint(hrp.Position)
                     local distance = (Camera.CFrame.Position - hrp.Position).Magnitude
 
@@ -2231,9 +2423,9 @@ TrackConnection(RunService.RenderStepped:Connect(function()
                             esp.HeadDot.Visible = false
                         end
 
-                        local hum = GetCharacterHumanoid(model)
-                        if QuantumConfig.HealthESP and hum and hum.MaxHealth > 0 then
-                            local hpRatio = math.clamp(hum.Health / hum.MaxHealth, 0, 1)
+                        local curHp, maxHp = GetEntityHealthAndMax(model)
+                        if QuantumConfig.HealthESP and maxHp > 0 then
+                            local hpRatio = math.clamp(curHp / maxHp, 0, 1)
                             local barX = boxPos.X - 5
                             local barTopY = boxPos.Y
                             local barBotY = boxPos.Y + boxHeight
@@ -2253,7 +2445,7 @@ TrackConnection(RunService.RenderStepped:Connect(function()
                         end
                         
                         if QuantumConfig.NameESP then
-                            local prefix = entityData.IsBot and "[BOT] " or ""
+                            local prefix = entityData.IsBot and "[AI/BOT] " or ""
                             esp.Name.Position = Vector2.new(vector.X, topScreen.Y - 17)
                             esp.Name.Text = string.format("%s%s [%dm]", prefix, entityData.Name, math.floor(distance))
                             esp.Name.Color = activeESPColor
@@ -2336,10 +2528,10 @@ TrackConnection(RunService.RenderStepped:Connect(function()
             CachedBestTarget = closestTarget
         end
 
-        -- Target Lock Indicator Line & Telemetry
         if CachedBestTarget and IsAliveAndValid(CachedBestTarget) then
             local ent = ActiveEntities[CachedBestTarget]
-            TargetStatusLabel.Text = "Locked: " .. (ent and ent.Name or CachedBestTarget.Name)
+            local tag = (ent and ent.IsBot) and "[BOT] " or ""
+            TargetStatusLabel.Text = "Locked: " .. tag .. (ent and ent.Name or CachedBestTarget.Name)
             local tPart = GetTargetPart(CachedBestTarget)
             if QuantumConfig.ShowTargetLine and (QuantumConfig.Aimbot or QuantumConfig.SilentAim) and tPart then
                 local tScreen, tVis = Camera:WorldToViewportPoint(GetPredictedPosition(tPart))
@@ -2367,7 +2559,6 @@ TrackConnection(RunService.RenderStepped:Connect(function()
             TargetLockRing.Visible = false
         end
 
-        -- 5. Camera Aimbot Lock
         if QuantumConfig.Aimbot and IsAimbotKeyDown() then
             local targetChar = CachedBestTarget
             if targetChar and IsAliveAndValid(targetChar) then
@@ -2382,7 +2573,6 @@ TrackConnection(RunService.RenderStepped:Connect(function()
             end
         end
 
-        -- 6. Universal TriggerBot (Crosshair or Silent Aim Auto-Shoot)
         if (QuantumConfig.TriggerBot or QuantumConfig.TriggerWithSilentAim) and (currentTime - lastTrigger >= QuantumConfig.TriggerDelay) then
             local hitEntity = GetTriggerBotTarget(mousePos)
             if hitEntity then
@@ -2518,6 +2708,7 @@ local function FullCleanup()
         if hl then pcall(function() hl:Destroy() end) end
     end
     table.clear(ActiveEntities)
+    table.clear(DiscoveredBotModels)
 
     for part, canCol in pairs(LocalPlayerNoclipCache) do
         if part and part.Parent then
@@ -2549,4 +2740,7 @@ end
 GlobalEnv.QuantumHubCleanup = FullCleanup
 
 CreateActionButton(SettingsTab, "Unload Quantum Hub & Restore Defaults", "UNLOAD", FullCleanup)
-Notify("Quantum Hub v3.0", "Loaded successfully! Press Right Shift to toggle.", 3)
+
+Notify("Quantum Hub v3.5 Loaded", "Universal Player & Deep-AI/Bot Engine Active! Press RightShift to toggle.", 4.0, false)
+UpdateTheme()
+UpdateWorld()
